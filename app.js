@@ -44,6 +44,7 @@ function render() {
 
     if (view === "day") renderDay();
     if (view === "week") renderWeek();
+    if (view === "progress") renderProgress();
 }
 
 function renderDay() {
@@ -96,6 +97,60 @@ function renderWeek() {
         div.innerHTML = row;
         listEl.appendChild(div);
     });
+}
+
+function renderProgress() {
+    goalEl.textContent = "Fortschritt";
+
+    habits.forEach(h => {
+        const div = document.createElement("div");
+        div.className = "habit";
+
+        const percent = calculatePercent(h);
+        const streak = calculateStreak(h);
+
+        div.innerHTML = `
+            <span>${h.name}</span>
+            <span>${percent}% | 🔥 ${streak}</span>
+        `;
+
+        listEl.appendChild(div);
+    });
+
+    const total = calculateTotal();
+    const totalDiv = document.createElement("div");
+    totalDiv.className = "habit";
+    totalDiv.innerHTML = `<b>Gesamt</b> <b>${total}%</b>`;
+    listEl.appendChild(totalDiv);
+}
+
+function calculatePercent(h) {
+    const dates = Object.keys(h.history);
+    if (dates.length === 0) return 0;
+
+    const done = dates.filter(d => h.history[d]).length;
+    return Math.round((done / dates.length) * 100);
+}
+
+function calculateStreak(h) {
+    let streak = 0;
+    let d = new Date();
+
+    while (true) {
+        const key = d.toISOString().split("T")[0];
+        if (h.history[key]) {
+            streak++;
+            d.setDate(d.getDate() - 1);
+        } else break;
+    }
+
+    return streak;
+}
+
+function calculateTotal() {
+    let sum = 0;
+    habits.forEach(h => sum += calculatePercent(h));
+    return habits.length ? Math.round(sum / habits.length) : 0;
 }
 
 render();
