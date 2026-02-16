@@ -4,6 +4,7 @@ let history = JSON.parse(localStorage.getItem("history")) || {};
 let currentTab = 'today';
 let currentStatFilter = 'week'; 
 let progressChart = null;
+let currentCalendarDate = new Date(); // NEU: Speichert, welchen Monat wir gerade im Kalender ansehen
 
 // DOM Elemente
 const appContent = document.getElementById("appContent");
@@ -31,7 +32,6 @@ function getPastDates(days) {
     return dates;
 }
 
-// Startpunkte berechnen (Für Woche, Monat, Jahr)
 function getStartOfWeek() {
     const d = new Date();
     const day = d.getDay() || 7; 
@@ -52,7 +52,7 @@ function toggleText(element, event) {
     element.classList.toggle('expanded');
 }
 
-// ===== MIGRATION (Für deine alten Gewohnheiten) =====
+// ===== MIGRATION =====
 function migrateOldData() {
     let changed = false;
     habits.forEach(h => {
@@ -72,7 +72,6 @@ function init() {
     renderView();
 }
 
-// HEADER UPDATE: Nur TÄGLICHE Gewohnheiten zählen für den Perfect Day!
 function updateHeader() {
     const today = getToday();
     dateDisplay.textContent = formatDate(today);
@@ -80,7 +79,7 @@ function updateHeader() {
     const dailyHabits = habits.filter(h => h.type === 'daily');
 
     if (dailyHabits.length === 0) {
-        dailyGoalText.textContent = "Keine täglichen Pflichten";
+        dailyGoalText.textContent = "Keine täglichen Routinen";
         dailyGoalPercent.textContent = "0%";
         progressBar.style.width = "0%";
         perfectDayBadge.classList.add("hidden");
@@ -89,14 +88,10 @@ function updateHeader() {
 
     const todayHistory = history[today] || {};
     let completed = 0;
-
-    dailyHabits.forEach(h => {
-        if (todayHistory[h.id]) completed++;
-    });
+    dailyHabits.forEach(h => { if (todayHistory[h.id]) completed++; });
 
     const percent = Math.round((completed / dailyHabits.length) * 100);
-    
-    dailyGoalText.textContent = `${completed} / ${dailyHabits.length} Tägliche erledigt`;
+    dailyGoalText.textContent = `${completed} / ${dailyHabits.length} erledigt`;
     dailyGoalPercent.textContent = `${percent}%`;
     progressBar.style.width = `${percent}%`;
 
@@ -107,8 +102,6 @@ function updateHeader() {
 function toggleHabit(habitId) {
     const today = getToday();
     if (!history[today]) history[today] = {};
-    
-    // Toggle (An oder Aus für den heutigen Tag)
     history[today][habitId] = !history[today][habitId];
     localStorage.setItem("history", JSON.stringify(history));
     
@@ -125,7 +118,6 @@ function deleteHabit(habitId) {
     }
 }
 
-// Berechnet, wie oft eine Gewohnheit in ihrem Zeitraum erledigt wurde
 function getCurrentPeriodCount(habit) {
     let startStr = getToday();
     if (habit.type === 'weekly') startStr = getStartOfWeek();
@@ -134,14 +126,12 @@ function getCurrentPeriodCount(habit) {
 
     let count = 0;
     Object.keys(history).forEach(date => {
-        if (date >= startStr && date <= getToday() && history[date][habit.id]) {
-            count++;
-        }
+        if (date >= startStr && date <= getToday() && history[date][habit.id]) count++;
     });
     return count;
 }
 
-// ===== VIEWS (Ansichten) =====
+// ===== VIEWS =====
 function switchTab(tab) {
     currentTab = tab;
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -156,7 +146,7 @@ function renderView() {
     else if (currentTab === 'progress') renderProgress();
 }
 
-// HAUPTSCREEN: Kategorien Trennung (Die Premium-Lösung)
+// HAUPTSCREEN
 function renderToday() {
     if (habits.length === 0) {
         appContent.innerHTML = `<p style="text-align:center; color:#94a3b8; margin-top:20px;">Klicke auf das + um zu starten!</p>`;
@@ -169,7 +159,7 @@ function renderToday() {
     const yearly = habits.filter(h => h.type === 'yearly');
 
     if(daily.length > 0) {
-        appContent.innerHTML += `<div class="section-title">🎯 Tägliche Pflicht</div>`;
+        appContent.innerHTML += `<div class="section-title">🎯 Tägliche Routinen</div>`;
         daily.forEach(h => appContent.appendChild(createHabitElement(h)));
     }
     if(weekly.length > 0) {
@@ -191,7 +181,6 @@ function createHabitElement(habit) {
     const isDoneToday = history[today]?.[habit.id] || false;
     const div = document.createElement("div");
     div.className = "habit-item";
-
     let actionHTML = "";
 
     if (habit.type === 'daily') {
@@ -210,13 +199,10 @@ function createHabitElement(habit) {
             </div>
         `;
     } else {
-        // Wochen/Monat/Jahr Logik (Overachiever System!)
         const count = getCurrentPeriodCount(habit);
-        let badgeClass = "";
-        let icon = "📈";
-
-        if (count > habit.target) { badgeClass = "overachiever"; icon = "🔥"; } // Bonus Grind!
-        else if (count === habit.target) { badgeClass = "done"; icon = "✅"; }  // Ziel erreicht
+        let badgeClass = ""; let icon = "📈";
+        if (count > habit.target) { badgeClass = "overachiever"; icon = "🔥"; } 
+        else if (count === habit.target) { badgeClass = "done"; icon = "✅"; }  
 
         actionHTML = `<div class="counter-badge ${badgeClass}" onclick="toggleHabit(${habit.id})">${count} / ${habit.target} ${icon}</div>`;
         
@@ -260,13 +246,13 @@ function renderProgress() {
     if (progressChart) { progressChart.destroy(); progressChart = null; }
 
     let html = `
-        <div class="section-title" style="margin-top:0;">Letzte 7 Tage (Nur Tägliche)</div>
+        <div class="section-title" style="margin-top:0;">📊 Gesamt-Trend (Letzte 7 Tage)</div>
         <div class="chart-container"><canvas id="progressChart"></canvas></div>
 
-        <div class="section-title">Aktivitäts-Heatmap (Gesamt)</div>
-        <div class="heatmap-grid" id="heatmapGrid"></div>
+        <div class="section-title">📅 Aktivitäts-Historie</div>
+        <div id="calendarContainer" class="calendar-container"></div>
 
-        <div class="section-title">Einzel-Fortschritt</div>
+        <div class="section-title">📈 Detaillierter Fortschritt</div>
         <div class="stat-filters">
             <button class="stat-filter-btn ${currentStatFilter === 'week' ? 'active' : ''}" onclick="setStatFilter('week', event)">Woche</button>
             <button class="stat-filter-btn ${currentStatFilter === 'month' ? 'active' : ''}" onclick="setStatFilter('month', event)">Monat</button>
@@ -276,15 +262,15 @@ function renderProgress() {
         <div id="indivStatsList"></div>
     `;
     appContent.innerHTML = html;
+    
     renderChart();
-    renderHeatmap();
+    renderCalendarHeatmap(); // NEU: Der Kalender wird geladen!
     renderIndivStats();
 }
 
 function renderChart() {
     const dates = getPastDates(7);
     const dailyHabits = habits.filter(h => h.type === 'daily');
-    
     const percentages = dates.map(date => {
         const dayHist = history[date] || {};
         if (dailyHabits.length === 0) return 0;
@@ -297,43 +283,84 @@ function renderChart() {
     const ctx = document.getElementById('progressChart').getContext('2d');
     
     progressChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: displayDates,
-            datasets: [{
-                label: 'Erledigt (%)', data: percentages, borderColor: '#0ea5e9',
-                backgroundColor: 'rgba(14, 165, 233, 0.2)', borderWidth: 3, fill: true,
-                tension: 0.4, pointBackgroundColor: '#0f172a', pointBorderColor: '#0ea5e9', pointBorderWidth: 2, pointRadius: 4
-            }]
-        },
+        type: 'line', data: { labels: displayDates, datasets: [{ label: 'Erledigt (%)', data: percentages, borderColor: '#0ea5e9', backgroundColor: 'rgba(14, 165, 233, 0.2)', borderWidth: 3, fill: true, tension: 0.4, pointBackgroundColor: '#0f172a', pointBorderColor: '#0ea5e9', pointBorderWidth: 2, pointRadius: 4 }] },
         options: { responsive: true, scales: { y: { beginAtZero: true, max: 100, ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } }, plugins: { legend: { display: false } } }
     });
 }
 
-function renderHeatmap() {
-    const grid = document.getElementById("heatmapGrid");
-    if (!grid) return;
-    const dates = getPastDates(90);
-    let html = '';
+// =======================================================
+// 🔥 NEUE KALENDER HEATMAP LOGIK
+// =======================================================
+function changeCalendarMonth(offset) {
+    currentCalendarDate.setMonth(currentCalendarDate.getMonth() + offset);
+    renderCalendarHeatmap(); // Lädt nur den Kalender neu, nicht die ganze Seite!
+}
 
-    dates.forEach(date => {
-        const dayHist = history[date] || {};
+function renderCalendarHeatmap() {
+    const container = document.getElementById("calendarContainer");
+    if (!container) return;
+
+    const year = currentCalendarDate.getFullYear();
+    const month = currentCalendarDate.getMonth();
+    const monthNames = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+    
+    // Berechnen, an welchem Wochentag der Monat beginnt
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    
+    let startDayOfWeek = (firstDay.getDay() - 1 + 7) % 7; // Macht Montag zur 0, Sonntag zur 6
+
+    let gridHtml = '';
+    
+    // Leere Kästchen für die Tage vorm 1. des Monats
+    for(let i = 0; i < startDayOfWeek; i++) {
+        gridHtml += `<div class="heatmap-box empty"></div>`;
+    }
+
+    // Die echten Tage (1 bis 31) ausfüllen
+    for(let i = 1; i <= daysInMonth; i++) {
+        // Formatiert das Datum exakt wie in unserer Datenbank (z.B. "2026-02-05")
+        const dateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+        const dayHist = history[dateStr] || {};
+        
         let done = 0;
         habits.forEach(h => { if (dayHist[h.id]) done++; });
 
         let percent = habits.length === 0 ? 0 : (done / habits.length) * 100;
-        let lvl = 0;
-        if (percent >= 100 && habits.length > 0) lvl = 4;
+        let lvl = 0; // 0 = Grau
+        
+        if (percent >= 100 && habits.length > 0) lvl = 4; // Gold!
         else if (percent >= 75) lvl = 3;
         else if (percent >= 40) lvl = 2;
         else if (percent > 0) lvl = 1;
 
-        const dateStr = new Date(date).toLocaleDateString('de-DE');
-        html += `<div class="heatmap-box lvl-${lvl}" title="${dateStr}: ${done} Aktionen"></div>`;
-    });
-    grid.innerHTML = html;
+        // Tooltip, wenn man drübergeht
+        const tooltip = `${i}. ${monthNames[month]}: ${done} erledigt`;
+
+        // Setzt die Zahl in die Mitte vom Kästchen
+        gridHtml += `<div class="heatmap-box lvl-${lvl}" title="${tooltip}">${i}</div>`;
+    }
+
+    // Setzt alles in den Container
+    container.innerHTML = `
+        <div class="calendar-header">
+            <button class="icon-btn" onclick="changeCalendarMonth(-1)"><i class="fas fa-chevron-left"></i></button>
+            <h3>${monthNames[month]} ${year}</h3>
+            <button class="icon-btn" onclick="changeCalendarMonth(1)"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <div class="calendar-weekdays">
+            <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span>
+        </div>
+        <div class="heatmap-grid">
+            ${gridHtml}
+        </div>
+    `;
 }
 
+// =======================================================
+// EINZEL-STATS LOGIK
+// =======================================================
 function setStatFilter(filter, event) {
     currentStatFilter = filter;
     document.querySelectorAll('.stat-filter-btn').forEach(btn => btn.classList.remove('active'));
@@ -349,8 +376,7 @@ function renderIndivStats() {
     let html = '';
     habits.forEach(habit => {
         const stats = getProgressStats(habit, currentStatFilter);
-        let fillClass = "";
-        let textStyle = "color: var(--accent);";
+        let fillClass = ""; let textStyle = "color: var(--accent);";
         
         if (stats.percent > 100) { fillClass = "overachiever"; textStyle = "color: var(--gold); font-weight: 800;"; }
         else if (stats.percent === 100) { fillClass = "perfect"; textStyle = "color: var(--success);"; }
@@ -386,7 +412,6 @@ function getProgressStats(habit, timeframe) {
     let doneCount = 0;
     datesToScan.forEach(d => { if (history[d] && history[d][habit.id]) doneCount++; });
 
-    // Mathe: Wie oft sollte es in diesem Zeitraum gemacht werden?
     let targetTotal = 1;
     if (habit.type === 'daily') targetTotal = days;
     else if (habit.type === 'weekly') targetTotal = Math.ceil((days / 7) * habit.target);
@@ -409,7 +434,7 @@ function calculateStreak(habitId) {
     return streak;
 }
 
-// ===== MODAL (Hinzufügen & Bearbeiten) =====
+// ===== MODAL =====
 function openModal(editId = null) {
     const modal = document.getElementById("addModal");
     const title = document.getElementById("modalTitle");
@@ -445,9 +470,7 @@ function toggleTargetInput() {
     else wrapper.classList.remove("hidden");
 }
 
-function closeModal() {
-    document.getElementById("addModal").classList.add("hidden");
-}
+function closeModal() { document.getElementById("addModal").classList.add("hidden"); }
 
 function saveNewHabit() {
     const name = document.getElementById("habitName").value.trim();
