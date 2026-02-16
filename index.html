@@ -36,17 +36,13 @@
     <main id="appContent">
         </main>
 
-    <button id="addBtn" onclick="openModal()">
-        <i class="fas fa-plus"></i>
-    </button>
+    <button id="addBtn" onclick="openModal()"><i class="fas fa-plus"></i></button>
 
     <div id="addModal" class="modal hidden">
         <div class="modal-content">
             <h2 id="modalTitle">Neue Gewohnheit</h2>
             <input type="hidden" id="editHabitId">
-            
             <input type="text" id="habitName" placeholder="Z.B. Lesen, Gym, Miete..." autocomplete="off">
-            
             <label>Wie oft?</label>
             <select id="habitType" onchange="toggleTargetInput()">
                 <option value="daily">Täglich (Perfect Day)</option>
@@ -54,12 +50,10 @@
                 <option value="monthly">Monatlich</option>
                 <option value="yearly">Jährlich</option>
             </select>
-
             <div id="targetWrapper" class="hidden" style="margin-top: 15px;">
                 <label>Wie oft in diesem Zeitraum?</label>
                 <input type="number" id="habitTarget" value="3" min="1" max="365">
             </div>
-
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="closeModal()">Abbrechen</button>
                 <button class="btn-save" onclick="saveNewHabit()">Speichern</button>
@@ -70,11 +64,20 @@
     <div id="diaryModal" class="modal hidden">
         <div class="modal-content">
             <h2 id="diaryDateTitle">Datum</h2>
-            <div id="diaryCompletedList" style="margin-bottom: 15px; font-size: 14px; color: var(--accent);">
-                </div>
-            <label>Deine Notiz für diesen Tag:</label>
-            <textarea id="diaryNoteInput" rows="4" placeholder="Wie lief dein Tag? Fühle dich frei, Gedanken zu notieren..."></textarea>
+            
+            <label>Status für diesen Tag:</label>
+            <div class="status-selector">
+                <button class="status-btn active" id="btnStatusNormal" onclick="tempDayStatus = 'normal'; updateStatusUI();">Normal</button>
+                <button class="status-btn" id="btnStatusSick" onclick="tempDayStatus = 'sick'; updateStatusUI();">🤒 Krank</button>
+                <button class="status-btn" id="btnStatusVacation" onclick="tempDayStatus = 'vacation'; updateStatusUI();">🏝️ Urlaub</button>
+            </div>
+
+            <div id="diaryCompletedList" style="margin-bottom: 15px; font-size: 14px; color: var(--accent);"></div>
+            
+            <label>Deine Notiz:</label>
+            <textarea id="diaryNoteInput" rows="4" placeholder="Wie lief dein Tag?"></textarea>
             <input type="hidden" id="diaryDateHidden">
+            
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="closeDiaryModal()">Schließen</button>
                 <button class="btn-save" onclick="saveDiaryNote()">Speichern</button>
