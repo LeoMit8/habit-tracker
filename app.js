@@ -173,25 +173,49 @@ function setChartFilter(filter, event) {
 
 function renderChart() {
     let days = 7;
-    if (currentChartFilter === 'month') days = 30; if (currentChartFilter === 'year') days = 365;
-    if (currentChartFilter === 'all') { const diffTime = Math.abs(new Date() - new Date(appStartDate)); days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; if (days < 7) days = 7; }
+    if (currentChartFilter === 'month') days = 30; 
+    if (currentChartFilter === 'year') days = 365;
+    if (currentChartFilter === 'all') { 
+        const diffTime = Math.abs(new Date() - new Date(appStartDate)); 
+        days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
+        if (days < 7) days = 7; 
+    }
 
-    const dates = getPastDates(days); const dailyHabits = habits.filter(h => h.type === 'daily');
+    const dates = getPastDates(days); 
+    const dailyHabits = habits.filter(h => h.type === 'daily');
+    
     const percentages = dates.map(date => {
         if (dayStatusList[date] === 'sick' || dayStatusList[date] === 'vacation') return null; 
         const dayHist = history[date] || {}; if (dailyHabits.length === 0) return 0;
-        let done = 0; dailyHabits.forEach(h => { if (dayHist[h.id]) done++; }); return Math.round((done / dailyHabits.length) * 100);
+        let done = 0; dailyHabits.forEach(h => { if (dayHist[h.id]) done++; }); 
+        return Math.round((done / dailyHabits.length) * 100);
     });
 
-    const displayDates = dates.map(d => { const dateObj = new Date(d); if (days <= 7) return dateObj.toLocaleDateString('de-DE', {weekday: 'short'}); if (days <= 30) return dateObj.toLocaleDateString('de-DE', {day: '2-digit', month: 'short'}); return dateObj.toLocaleDateString('de-DE', {day: '2-digit', month: 'short', year: '2-digit'}); });
+    const displayDates = dates.map(d => { 
+        const dateObj = new Date(d); 
+        if (days <= 7) return dateObj.toLocaleDateString('de-DE', {weekday: 'short'}); 
+        if (days <= 30) return dateObj.toLocaleDateString('de-DE', {day: '2-digit', month: 'short'}); 
+        return dateObj.toLocaleDateString('de-DE', {day: '2-digit', month: 'short', year: '2-digit'}); 
+    });
 
     const ctx = document.getElementById('progressChart').getContext('2d');
     if (progressChart) { progressChart.destroy(); }
     
-    // 🔥 NEU: Wenn mehr als 30 Tage, wird die Linie ultradünn (1 Pixel) und die Punkte verschwinden komplett
-    let pRadius = days > 30 ? 0 : 4; 
-    let pBorder = days > 30 ? 0 : 2;
-    let lineThickness = days > 30 ? 1 : 3;
+    // 🔥 DER FIX: Smarte Diagramm-Darstellung für lange Zeiträume
+    let isLongTerm = days > 30;
+    
+    let pRadius = isLongTerm ? 0 : 4; 
+    let pBorder = isLongTerm ? 0 : 2;
+    
+    // 1. Die Füllung ausschalten, damit es nicht mehr "ausgemalt" aussieht
+    let showFillArea = isLongTerm ? false : true; 
+    
+    // 2. Die Linie ausdünnen und leicht transparent machen (gegen Farbklumpen)
+    let lineThickness = isLongTerm ? 1 : 3;
+    let lineColor = isLongTerm ? 'rgba(14, 165, 233, 0.7)' : '#0ea5e9';
+    
+    // 3. Die Kurven glätten (verhindert das Überschneiden von Loops)
+    let lineTension = isLongTerm ? 0.1 : 0.4;
 
     progressChart = new Chart(ctx, { 
         type: 'line', 
@@ -200,11 +224,11 @@ function renderChart() {
             datasets: [{ 
                 label: 'Erledigt (%)', 
                 data: percentages, 
-                borderColor: '#0ea5e9', 
+                borderColor: lineColor, 
                 backgroundColor: 'rgba(14, 165, 233, 0.2)', 
                 borderWidth: lineThickness, 
-                fill: true, 
-                tension: 0.4, 
+                fill: showFillArea,       // <-- Hier greift der neue Fix!
+                tension: lineTension,     // <-- Hier werden die Schlaufen geglättet!
                 spanGaps: true, 
                 pointBackgroundColor: '#0f172a', 
                 pointBorderColor: '#0ea5e9', 
