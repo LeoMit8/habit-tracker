@@ -1,13 +1,6 @@
 :root {
-    --bg-color: #0f172a;
-    --card-bg: #1e293b;
-    --accent: #0ea5e9;
-    --accent-glow: rgba(14, 165, 233, 0.4);
-    --text-main: #f8fafc;
-    --text-muted: #94a3b8;
-    --success: #10b981;
-    --danger: #ef4444;
-    --gold: #f59e0b;
+    --bg-color: #0f172a; --card-bg: #1e293b; --accent: #0ea5e9; --accent-glow: rgba(14, 165, 233, 0.4);
+    --text-main: #f8fafc; --text-muted: #94a3b8; --success: #10b981; --danger: #ef4444; --gold: #f59e0b;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -17,11 +10,9 @@ body { background-color: var(--bg-color); color: var(--text-main); padding-botto
 /* === HEADER === */
 header { background-color: var(--card-bg); padding: 20px; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); position: sticky; top: 0; z-index: 10; }
 .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-
 .date-navigation { display: flex; align-items: center; gap: 8px; }
 #dateDisplay { font-size: 22px; font-weight: bold; min-width: 100px; text-align: center; margin: 0; }
-
-#perfectDayBadge { background: linear-gradient(135deg, var(--gold), #fbbf24); color: #000; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 12px; animation: popIn 0.5s ease-out; }
+#perfectDayBadge { background: linear-gradient(135deg, var(--gold), #fbbf24); color: #000; font-size: 11px; font-weight: 800; padding: 4px 8px; border-radius: 12px; animation: popIn 0.5s ease-out; white-space: nowrap;}
 .progress-container { margin-bottom: 20px; }
 .progress-text { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; color: var(--text-muted); }
 .accent-text { color: var(--accent); font-weight: bold; }
@@ -35,23 +26,30 @@ header { background-color: var(--card-bg); padding: 20px; border-bottom-left-rad
 main { padding: 20px; }
 .section-title { font-size: 14px; font-weight: bold; color: var(--text-muted); margin-top: 25px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
 
+/* 🔥 NEU: COACH BANNER */
+.coach-banner {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(14, 165, 233, 0.1));
+    border: 1px solid rgba(14, 165, 233, 0.3);
+    border-radius: 12px; padding: 15px; margin-bottom: 5px;
+    display: flex; align-items: center; gap: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2); animation: popIn 0.4s ease-out;
+}
+.coach-icon { font-size: 24px; }
+.coach-text { font-size: 14px; line-height: 1.4; color: var(--text-main); font-weight: 500; }
+
 .truncate { display: inline-block; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; transition: all 0.3s ease; }
 .truncate.expanded { white-space: normal; word-break: break-word; max-width: 100%; text-overflow: clip; }
-
 .habit-item { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 16px 20px; margin-bottom: 10px; border-radius: 12px; }
 .habit-info { display: flex; flex-direction: column; gap: 4px; cursor: pointer; flex-grow: 1; }
 .habit-name { font-size: 16px; font-weight: 600; }
 .habit-streak { font-size: 12px; color: var(--text-muted); }
 .habit-streak i { color: var(--gold); }
-
 .checkbox { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }
 .checkbox.checked { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 10px var(--accent-glow); }
 .checkbox.checked::after { content: '✔'; color: var(--bg-color); font-size: 16px; font-weight: bold; }
-
 .counter-badge { background: #334155; color: var(--text-main); font-size: 14px; font-weight: bold; padding: 6px 12px; border-radius: 12px; cursor: pointer; transition: all 0.3s ease; }
 .counter-badge.done { background: var(--success); color: white; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
 .counter-badge.overachiever { background: var(--gold); color: #000; box-shadow: 0 0 10px rgba(245, 158, 11, 0.6); animation: popIn 0.3s ease-out; }
-
 .action-btns { display: flex; gap: 15px; margin-left: 15px; }
 .icon-btn { background: transparent; border: none; font-size: 16px; cursor: pointer; padding: 5px; color: var(--text-muted); transition: color 0.2s; }
 .icon-btn:disabled { opacity: 0.3; cursor: not-allowed; }
@@ -66,16 +64,7 @@ main { padding: 20px; }
 .day-circle { width: 24px; height: 24px; border-radius: 50%; background: #334155; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--text-muted); }
 .day-circle.done { background: var(--accent); color: var(--bg-color); }
 
-/* === DIAGRAMM CONTAINER (Feste Höhe eingebaut!) === */
-.chart-container { 
-    background: var(--card-bg); 
-    padding: 15px; 
-    border-radius: 12px; 
-    position: relative; 
-    height: 250px; /* Diese Zeile ist der Gamechanger! Diagramm wächst nicht mehr! */
-    width: 100%; 
-}
-
+.chart-container { background: var(--card-bg); padding: 15px; border-radius: 12px; position: relative; height: 250px; width: 100%; }
 .stat-filters { display: flex; background: #334155; border-radius: 8px; padding: 3px; margin-bottom: 15px; }
 .stat-filter-btn { flex: 1; background: transparent; border: none; color: var(--text-muted); padding: 8px 0; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
 .stat-filter-btn.active { background: var(--card-bg); color: var(--text-main); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
@@ -86,7 +75,6 @@ main { padding: 20px; }
 .stat-bar-fill.perfect { background: var(--success); }
 .stat-bar-fill.overachiever { background: var(--gold); box-shadow: 0 0 8px rgba(245, 158, 11, 0.6); }
 
-/* === KALENDER === */
 .calendar-container { background: var(--card-bg); border-radius: 12px; overflow: hidden; margin-bottom: 20px; }
 .calendar-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: #182235; border-bottom: 1px solid #334155; }
 .calendar-header h3 { font-size: 16px; margin: 0; color: var(--text-main); }
@@ -104,17 +92,15 @@ main { padding: 20px; }
 .heatmap-box.lvl-4 { background: var(--gold); color: #000; box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
 
 .dog-ear::after { content: ''; position: absolute; top: 0; right: 0; border-width: 0 12px 12px 0; border-style: solid; border-color: transparent var(--accent) transparent transparent; border-top-right-radius: 5px; }
-
 .crown-icon { position: absolute; top: -5px; right: -5px; font-size: 14px; transform: rotate(15deg); filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); z-index: 5; animation: popIn 0.3s ease-out; }
 .note-dots { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); font-size: 12px; line-height: 0.5; letter-spacing: 1.5px; color: rgba(255, 255, 255, 0.6); pointer-events: none; }
 .heatmap-box.lvl-4 .note-dots { color: rgba(0, 0, 0, 0.5); }
 
-/* === MODALS === */
 #addBtn { position: fixed; right: 25px; bottom: 25px; background: var(--accent); border: none; border-radius: 50%; width: 60px; height: 60px; color: var(--bg-color); font-size: 24px; box-shadow: 0 4px 15px var(--accent-glow); cursor: pointer; z-index: 100; transition: transform 0.2s; }
 #addBtn:active { transform: scale(0.9); }
 .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(5px); }
 .modal-content { background: var(--card-bg); padding: 25px; border-radius: 20px; width: 90%; max-width: 400px; }
-.modal-content h2 { margin-bottom: 20px; }
+.modal-content h2 { margin-bottom: 20px; font-size: 20px; }
 .modal-content input, .modal-content select, .modal-content textarea { width: 100%; padding: 12px; margin-bottom: 15px; background: var(--bg-color); border: 1px solid #334155; color: white; border-radius: 8px; font-size: 16px; }
 
 .status-selector { display: flex; gap: 8px; margin-bottom: 15px; }
@@ -122,7 +108,7 @@ main { padding: 20px; }
 .status-btn.active { border-color: var(--accent); background: rgba(14, 165, 233, 0.2); }
 
 .modal-actions { display: flex; gap: 10px; margin-top: 10px; }
-.modal-actions button { flex: 1; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; border: none; cursor: pointer; }
+.modal-actions button { flex: 1; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; border: none; cursor: pointer; transition: 0.2s; }
 .btn-cancel { background: #334155; color: white; }
 .btn-save { background: var(--accent); color: var(--bg-color); }
 @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
