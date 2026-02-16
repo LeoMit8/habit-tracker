@@ -17,7 +17,11 @@
                 <h1 id="dateDisplay">Heute</h1>
                 <button class="icon-btn" onclick="changeMainDate(1)" id="btnNextDay"><i class="fas fa-chevron-right"></i></button>
             </div>
-            <div id="perfectDayBadge" class="hidden">⭐ PERFECT DAY ⭐</div>
+            
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div id="perfectDayBadge" class="hidden">⭐ PERFECT DAY</div>
+                <button class="icon-btn" onclick="openSettingsModal()" style="color: var(--text-muted);"><i class="fas fa-cog"></i></button>
+            </div>
         </div>
         
         <div class="progress-container">
@@ -68,23 +72,38 @@
     <div id="diaryModal" class="modal hidden">
         <div class="modal-content">
             <h2 id="diaryDateTitle">Datum</h2>
-            
             <label>Status für diesen Tag:</label>
             <div class="status-selector">
                 <button class="status-btn active" id="btnStatusNormal" onclick="tempDayStatus = 'normal'; updateStatusUI();">Normal</button>
                 <button class="status-btn" id="btnStatusSick" onclick="tempDayStatus = 'sick'; updateStatusUI();">🤒 Krank</button>
                 <button class="status-btn" id="btnStatusVacation" onclick="tempDayStatus = 'vacation'; updateStatusUI();">🏝️ Urlaub</button>
             </div>
-
             <div id="diaryCompletedList" style="margin-bottom: 15px; font-size: 14px; color: var(--accent);"></div>
-            
             <label>Deine Notiz:</label>
             <textarea id="diaryNoteInput" rows="4" placeholder="Wie lief dein Tag?"></textarea>
             <input type="hidden" id="diaryDateHidden">
-            
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="closeDiaryModal()">Schließen</button>
                 <button class="btn-save" onclick="saveDiaryNote()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="settingsModal" class="modal hidden">
+        <div class="modal-content">
+            <h2>⚙️ Einstellungen</h2>
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Deine Daten werden sicher und nur lokal auf diesem Gerät gespeichert.</p>
+            
+            <div class="modal-actions" style="flex-direction: column; gap: 10px;">
+                <button class="btn-save" style="width: 100%;" onclick="exportData()"><i class="fas fa-download"></i> Backup speichern</button>
+                <button class="btn-cancel" style="width: 100%; position: relative;" onclick="document.getElementById('importFile').click()">
+                    <i class="fas fa-upload"></i> Backup laden
+                </button>
+                <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
+            </div>
+            
+            <div class="modal-actions" style="margin-top: 20px;">
+                <button class="btn-cancel" onclick="closeSettingsModal()" style="width: 100%;">Schließen</button>
             </div>
         </div>
     </div>
