@@ -14,9 +14,14 @@
 body { background-color: var(--bg-color); color: var(--text-main); padding-bottom: 100px; }
 .hidden { display: none !important; }
 
+/* === HEADER (Neu: Date Navigation) === */
 header { background-color: var(--card-bg); padding: 20px; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); position: sticky; top: 0; z-index: 10; }
 .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-#dateDisplay { font-size: 24px; font-weight: bold; }
+
+/* NEU: Flexbox für die Pfeile neben dem Datum */
+.date-navigation { display: flex; align-items: center; gap: 8px; }
+#dateDisplay { font-size: 22px; font-weight: bold; min-width: 100px; text-align: center; margin: 0; }
+
 #perfectDayBadge { background: linear-gradient(135deg, var(--gold), #fbbf24); color: #000; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 12px; animation: popIn 0.5s ease-out; }
 .progress-container { margin-bottom: 20px; }
 .progress-text { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; color: var(--text-muted); }
@@ -50,6 +55,7 @@ main { padding: 20px; }
 
 .action-btns { display: flex; gap: 15px; margin-left: 15px; }
 .icon-btn { background: transparent; border: none; font-size: 16px; cursor: pointer; padding: 5px; color: var(--text-muted); transition: color 0.2s; }
+.icon-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .edit-btn { color: var(--accent); }
 .delete-btn { color: var(--danger); }
 
@@ -72,21 +78,13 @@ main { padding: 20px; }
 .stat-bar-fill.perfect { background: var(--success); }
 .stat-bar-fill.overachiever { background: var(--gold); box-shadow: 0 0 8px rgba(245, 158, 11, 0.6); }
 
-/* =======================================================
-   🔥 PHASE 2: KALENDER & EXTREME GAMIFICATION
-   ======================================================= */
+/* === KALENDER === */
 .calendar-container { background: var(--card-bg); border-radius: 12px; overflow: hidden; margin-bottom: 20px; }
 .calendar-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: #182235; border-bottom: 1px solid #334155; }
 .calendar-header h3 { font-size: 16px; margin: 0; color: var(--text-main); }
 .calendar-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; padding: 10px 15px 5px 15px; font-size: 12px; font-weight: bold; color: var(--text-muted); }
 .heatmap-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 10px 15px 20px 15px; }
-
-.heatmap-box { 
-    width: 100%; aspect-ratio: 1; border-radius: 6px; 
-    display: flex; align-items: center; justify-content: center; 
-    font-size: 14px; font-weight: bold; 
-    transition: transform 0.1s; position: relative; cursor: pointer; 
-}
+.heatmap-box { width: 100%; aspect-ratio: 1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; transition: transform 0.1s; position: relative; cursor: pointer; }
 .heatmap-box:hover { transform: scale(1.05); }
 
 .heatmap-box.empty { background: transparent; cursor: default; }
@@ -97,21 +95,16 @@ main { padding: 20px; }
 .heatmap-box.lvl-3 { background: rgba(14, 165, 233, 0.9); color: #fff; }
 .heatmap-box.lvl-4 { background: var(--gold); color: #000; box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
 
-/* 1. DAS DOG-EAR (Eselsohr für Flex-Ziele) */
-.dog-ear::after {
-    content: ''; position: absolute; top: 0; right: 0;
-    border-width: 0 12px 12px 0; border-style: solid;
-    border-color: transparent var(--accent) transparent transparent;
-    border-top-right-radius: 5px;
-}
-/* 2. DIE KRONE (Ziel abgeschlossen!) */
+.dog-ear::after { content: ''; position: absolute; top: 0; right: 0; border-width: 0 12px 12px 0; border-style: solid; border-color: transparent var(--accent) transparent transparent; border-top-right-radius: 5px; }
+
+/* 👑 KRONE FIX: Weiter unten und leicht links, damit es perfekt auf der Zahl sitzt */
 .crown-icon {
-    position: absolute; top: -10px; right: -8px; 
+    position: absolute; top: -5px; right: -5px; 
     font-size: 14px; transform: rotate(15deg); 
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); z-index: 5;
     animation: popIn 0.3s ease-out;
 }
-/* Die 3 Punkte (Tagebuch) */
+
 .note-dots { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); font-size: 12px; line-height: 0.5; letter-spacing: 1.5px; color: rgba(255, 255, 255, 0.6); pointer-events: none; }
 .heatmap-box.lvl-4 .note-dots { color: rgba(0, 0, 0, 0.5); }
 
@@ -123,7 +116,6 @@ main { padding: 20px; }
 .modal-content h2 { margin-bottom: 20px; }
 .modal-content input, .modal-content select, .modal-content textarea { width: 100%; padding: 12px; margin-bottom: 15px; background: var(--bg-color); border: 1px solid #334155; color: white; border-radius: 8px; font-size: 16px; }
 
-/* Status Selector (Krank/Urlaub) */
 .status-selector { display: flex; gap: 8px; margin-bottom: 15px; }
 .status-btn { flex: 1; padding: 10px 5px; background: #334155; border: 2px solid transparent; border-radius: 8px; color: white; cursor: pointer; transition: 0.2s; font-size: 13px; font-weight: bold; }
 .status-btn.active { border-color: var(--accent); background: rgba(14, 165, 233, 0.2); }
