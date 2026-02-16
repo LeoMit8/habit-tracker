@@ -12,7 +12,11 @@
 
     <header>
         <div class="header-top">
-            <h1 id="dateDisplay">Heute</h1>
+            <div class="date-navigation">
+                <button class="icon-btn" onclick="changeMainDate(-1)"><i class="fas fa-chevron-left"></i></button>
+                <h1 id="dateDisplay">Heute</h1>
+                <button class="icon-btn" onclick="changeMainDate(1)" id="btnNextDay"><i class="fas fa-chevron-right"></i></button>
+            </div>
             <div id="perfectDayBadge" class="hidden">⭐ PERFECT DAY ⭐</div>
         </div>
         
