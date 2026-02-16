@@ -169,7 +169,7 @@ function renderToday() {
     const yearly = habits.filter(h => h.type === 'yearly');
 
     if(daily.length > 0) {
-        appContent.innerHTML += `<div class="section-title">🎯 Tägliche Pflicht (Perfect Day)</div>`;
+        appContent.innerHTML += `<div class="section-title">🎯 Tägliche Pflicht</div>`;
         daily.forEach(h => appContent.appendChild(createHabitElement(h)));
     }
     if(weekly.length > 0) {
@@ -266,7 +266,7 @@ function renderProgress() {
         <div class="section-title">Aktivitäts-Heatmap (Gesamt)</div>
         <div class="heatmap-grid" id="heatmapGrid"></div>
 
-        <div class="section-title">Einzel-Fortschritt (Inkl. Bonus 🔥)</div>
+        <div class="section-title">Einzel-Fortschritt</div>
         <div class="stat-filters">
             <button class="stat-filter-btn ${currentStatFilter === 'week' ? 'active' : ''}" onclick="setStatFilter('week', event)">Woche</button>
             <button class="stat-filter-btn ${currentStatFilter === 'month' ? 'active' : ''}" onclick="setStatFilter('month', event)">Monat</button>
