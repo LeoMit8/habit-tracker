@@ -2,8 +2,8 @@
 let habits = JSON.parse(localStorage.getItem("habits")) || [];
 let history = JSON.parse(localStorage.getItem("history")) || {};
 let currentTab = 'today';
+let currentStatFilter = 'week'; // Für Einzel-Fortschritt (week, month, year, all)
 let progressChart = null;
-let currentStatFilter = 'week'; // Für Einzel-Fortschritt (week, month, all)
 
 // DOM Elemente
 const appContent = document.getElementById("appContent");
@@ -23,7 +23,6 @@ function formatDate(dateString) {
     return new Date(dateString).toLocaleDateString('de-DE', options);
 }
 
-// Gibt die letzten X Tage zurück (älteste zuerst, damit Diagramme & Heatmap von links nach rechts laufen)
 function getPastDates(days) {
     const dates = [];
     for (let i = days - 1; i >= 0; i--) {
@@ -34,9 +33,8 @@ function getPastDates(days) {
     return dates;
 }
 
-// Text ausklappen wenn er abgeschnitten ist
 function toggleText(element, event) {
-    if(event) event.stopPropagation(); // Verhindert, dass die Gewohnheit abgehakt wird beim Klick auf den Text
+    if(event) event.stopPropagation(); 
     element.classList.toggle('expanded');
 }
 
@@ -71,8 +69,12 @@ function updateHeader() {
     dailyGoalPercent.textContent = `${percent}%`;
     progressBar.style.width = `${percent}%`;
 
-    if (percent === 100 && habits.length > 0) perfectDayBadge.classList.remove("hidden");
-    else perfectDayBadge.classList.add("hidden");
+    // Der Perfect Day Bugfix!
+    if (percent === 100 && habits.length > 0) {
+        perfectDayBadge.classList.remove("hidden");
+    } else {
+        perfectDayBadge.classList.add("hidden");
+    }
 }
 
 function toggleHabit(habitId) {
@@ -163,13 +165,14 @@ function renderWeek() {
     appContent.innerHTML = html;
 }
 
-// ===== PROGRESS BEREICH (Diagramm + Heatmap + Einzel-Stats) =====
+// ===== PROGRESS BEREICH =====
 function renderProgress() {
     if (progressChart) {
         progressChart.destroy();
         progressChart = null;
     }
 
+    // NEU: Der 'Jahr'-Button ist jetzt mit dabei!
     let html = `
         <div class="section-title" style="margin-top:0;">Letzte 7 Tage Gesamt</div>
         <div class="chart-container">
@@ -183,6 +186,7 @@ function renderProgress() {
         <div class="stat-filters">
             <button class="stat-filter-btn ${currentStatFilter === 'week' ? 'active' : ''}" onclick="setStatFilter('week', event)">Woche</button>
             <button class="stat-filter-btn ${currentStatFilter === 'month' ? 'active' : ''}" onclick="setStatFilter('month', event)">Monat</button>
+            <button class="stat-filter-btn ${currentStatFilter === 'year' ? 'active' : ''}" onclick="setStatFilter('year', event)">Jahr</button>
             <button class="stat-filter-btn ${currentStatFilter === 'all' ? 'active' : ''}" onclick="setStatFilter('all', event)">Alles</button>
         </div>
         <div id="indivStatsList"></div>
@@ -241,7 +245,7 @@ function renderHeatmap() {
     const grid = document.getElementById("heatmapGrid");
     if (!grid) return;
 
-    const dates = getPastDates(90); // 90 Tage
+    const dates = getPastDates(90);
     let html = '';
 
     dates.forEach(date => {
@@ -252,7 +256,7 @@ function renderHeatmap() {
         let percent = habits.length === 0 ? 0 : (done / habits.length) * 100;
         let lvl = 0;
         
-        if (percent === 100 && habits.length > 0) lvl = 4; // Perfect Day
+        if (percent === 100 && habits.length > 0) lvl = 4;
         else if (percent >= 75) lvl = 3;
         else if (percent >= 40) lvl = 2;
         else if (percent > 0) lvl = 1;
@@ -306,6 +310,7 @@ function renderIndivStats() {
 function getProgressStats(habit, timeframe) {
     let days = 7;
     if (timeframe === 'month') days = 30;
+    if (timeframe === 'year') days = 365; // NEU: 365 Tage Berechnung
     if (timeframe === 'all') {
         const allDates = Object.keys(history).sort();
         if (allDates.length > 0) {
@@ -359,14 +364,12 @@ function openModal(editId = null) {
     const idInput = document.getElementById("editHabitId");
 
     if (editId) {
-        // Bearbeitungsmodus
         const habit = habits.find(h => h.id === editId);
         title.textContent = "Gewohnheit bearbeiten";
         nameInput.value = habit.name;
         freqInput.value = habit.perWeek;
         idInput.value = habit.id;
     } else {
-        // Neu-Modus
         title.textContent = "Neue Gewohnheit";
         nameInput.value = "";
         freqInput.value = 7;
@@ -389,14 +392,12 @@ function saveNewHabit() {
     if (!name) return alert("Bitte einen Namen eingeben!");
 
     if (editId) {
-        // Bestehende Gewohnheit updaten
         const habit = habits.find(h => h.id == editId);
         if (habit) {
             habit.name = name;
             habit.perWeek = parseInt(freq);
         }
     } else {
-        // Neue erstellen
         const habit = {
             id: Date.now(),
             name: name,
