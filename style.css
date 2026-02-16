@@ -35,3 +35,24 @@ header {
     margin-bottom: 8px;
     border-radius: 8px;
 }
+/* Delete Mode */
+.habit.delete-mode {
+  background: #ffe5e5;
+  border: 2px solid #ff4d4d;
+  position: relative;
+}
+
+.delete-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #ff4d4d;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  cursor: pointer;
+}
