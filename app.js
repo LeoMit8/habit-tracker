@@ -1,10 +1,11 @@
 // ===== DATEN & STATE =====
 let habits = JSON.parse(localStorage.getItem("habits")) || [];
 let history = JSON.parse(localStorage.getItem("history")) || {};
+let notes = JSON.parse(localStorage.getItem("notes")) || {}; // NEU: Hier speichern wir das Tagebuch!
 let currentTab = 'today';
 let currentStatFilter = 'week'; 
 let progressChart = null;
-let currentCalendarDate = new Date(); // NEU: Speichert, welchen Monat wir gerade im Kalender ansehen
+let currentCalendarDate = new Date(); 
 
 // DOM Elemente
 const appContent = document.getElementById("appContent");
@@ -18,7 +19,7 @@ const perfectDayBadge = document.getElementById("perfectDayBadge");
 function getToday() { return new Date().toISOString().split("T")[0]; }
 
 function formatDate(dateString) {
-    const options = { weekday: 'short', day: '2-digit', month: 'short' };
+    const options = { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' };
     return new Date(dateString).toLocaleDateString('de-DE', options);
 }
 
@@ -32,42 +33,14 @@ function getPastDates(days) {
     return dates;
 }
 
-function getStartOfWeek() {
-    const d = new Date();
-    const day = d.getDay() || 7; 
-    d.setDate(d.getDate() - day + 1);
-    return d.toISOString().split("T")[0];
-}
-function getStartOfMonth() {
-    const d = new Date(); d.setDate(1);
-    return d.toISOString().split("T")[0];
-}
-function getStartOfYear() {
-    const d = new Date(); d.setMonth(0, 1);
-    return d.toISOString().split("T")[0];
-}
+function getStartOfWeek() { const d = new Date(); const day = d.getDay() || 7; d.setDate(d.getDate() - day + 1); return d.toISOString().split("T")[0]; }
+function getStartOfMonth() { const d = new Date(); d.setDate(1); return d.toISOString().split("T")[0]; }
+function getStartOfYear() { const d = new Date(); d.setMonth(0, 1); return d.toISOString().split("T")[0]; }
 
-function toggleText(element, event) {
-    if(event) event.stopPropagation(); 
-    element.classList.toggle('expanded');
-}
-
-// ===== MIGRATION =====
-function migrateOldData() {
-    let changed = false;
-    habits.forEach(h => {
-        if (!h.type) {
-            h.type = h.perWeek === 7 ? 'daily' : 'weekly';
-            h.target = h.perWeek === 7 ? 1 : h.perWeek;
-            changed = true;
-        }
-    });
-    if (changed) localStorage.setItem("habits", JSON.stringify(habits));
-}
+function toggleText(element, event) { if(event) event.stopPropagation(); element.classList.toggle('expanded'); }
 
 // ===== CORE LOGIK =====
 function init() {
-    migrateOldData();
     updateHeader();
     renderView();
 }
@@ -148,97 +121,48 @@ function renderView() {
 
 // HAUPTSCREEN
 function renderToday() {
-    if (habits.length === 0) {
-        appContent.innerHTML = `<p style="text-align:center; color:#94a3b8; margin-top:20px;">Klicke auf das + um zu starten!</p>`;
-        return;
-    }
+    if (habits.length === 0) { appContent.innerHTML = `<p style="text-align:center; color:#94a3b8; margin-top:20px;">Klicke auf das + um zu starten!</p>`; return; }
 
     const daily = habits.filter(h => h.type === 'daily');
     const weekly = habits.filter(h => h.type === 'weekly');
     const monthly = habits.filter(h => h.type === 'monthly');
     const yearly = habits.filter(h => h.type === 'yearly');
 
-    if(daily.length > 0) {
-        appContent.innerHTML += `<div class="section-title">🎯 Tägliche Routinen</div>`;
-        daily.forEach(h => appContent.appendChild(createHabitElement(h)));
-    }
-    if(weekly.length > 0) {
-        appContent.innerHTML += `<div class="section-title">🗓️ Wöchentliche Ziele</div>`;
-        weekly.forEach(h => appContent.appendChild(createHabitElement(h)));
-    }
-    if(monthly.length > 0) {
-        appContent.innerHTML += `<div class="section-title">📅 Monatsziele</div>`;
-        monthly.forEach(h => appContent.appendChild(createHabitElement(h)));
-    }
-    if(yearly.length > 0) {
-        appContent.innerHTML += `<div class="section-title">🌍 Jahresziele</div>`;
-        yearly.forEach(h => appContent.appendChild(createHabitElement(h)));
-    }
+    if(daily.length > 0) { appContent.innerHTML += `<div class="section-title">🎯 Tägliche Routinen</div>`; daily.forEach(h => appContent.appendChild(createHabitElement(h))); }
+    if(weekly.length > 0) { appContent.innerHTML += `<div class="section-title">🗓️ Wöchentliche Ziele</div>`; weekly.forEach(h => appContent.appendChild(createHabitElement(h))); }
+    if(monthly.length > 0) { appContent.innerHTML += `<div class="section-title">📅 Monatsziele</div>`; monthly.forEach(h => appContent.appendChild(createHabitElement(h))); }
+    if(yearly.length > 0) { appContent.innerHTML += `<div class="section-title">🌍 Jahresziele</div>`; yearly.forEach(h => appContent.appendChild(createHabitElement(h))); }
 }
 
 function createHabitElement(habit) {
     const today = getToday();
     const isDoneToday = history[today]?.[habit.id] || false;
-    const div = document.createElement("div");
-    div.className = "habit-item";
+    const div = document.createElement("div"); div.className = "habit-item";
     let actionHTML = "";
 
     if (habit.type === 'daily') {
         const streak = calculateStreak(habit.id);
         actionHTML = `<div class="checkbox ${isDoneToday ? 'checked' : ''}" onclick="toggleHabit(${habit.id})"></div>`;
-        
-        div.innerHTML = `
-            <div class="habit-info" onclick="toggleHabit(${habit.id})">
-                <span class="habit-name truncate" onclick="toggleText(this, event)">${habit.name}</span>
-                <span class="habit-streak"><i class="fas fa-fire"></i> ${streak} Tage Streak</span>
-            </div>
-            ${actionHTML}
-            <div class="action-btns">
-                <button class="icon-btn edit-btn" onclick="openModal(${habit.id})"><i class="fas fa-pen"></i></button>
-                <button class="icon-btn delete-btn" onclick="deleteHabit(${habit.id})"><i class="fas fa-trash"></i></button>
-            </div>
-        `;
+        div.innerHTML = `<div class="habit-info" onclick="toggleHabit(${habit.id})"><span class="habit-name truncate" onclick="toggleText(this, event)">${habit.name}</span><span class="habit-streak"><i class="fas fa-fire"></i> ${streak} Tage Streak</span></div>${actionHTML}<div class="action-btns"><button class="icon-btn edit-btn" onclick="openModal(${habit.id})"><i class="fas fa-pen"></i></button><button class="icon-btn delete-btn" onclick="deleteHabit(${habit.id})"><i class="fas fa-trash"></i></button></div>`;
     } else {
         const count = getCurrentPeriodCount(habit);
         let badgeClass = ""; let icon = "📈";
         if (count > habit.target) { badgeClass = "overachiever"; icon = "🔥"; } 
         else if (count === habit.target) { badgeClass = "done"; icon = "✅"; }  
-
         actionHTML = `<div class="counter-badge ${badgeClass}" onclick="toggleHabit(${habit.id})">${count} / ${habit.target} ${icon}</div>`;
-        
-        div.innerHTML = `
-            <div class="habit-info" onclick="toggleHabit(${habit.id})">
-                <span class="habit-name truncate" onclick="toggleText(this, event)">${habit.name}</span>
-                <span class="habit-streak" style="color: ${isDoneToday ? 'var(--accent)' : 'var(--text-muted)'};">
-                    ${isDoneToday ? 'Heute erledigt! 🙌' : 'Heute noch nicht'}
-                </span>
-            </div>
-            ${actionHTML}
-            <div class="action-btns">
-                <button class="icon-btn edit-btn" onclick="openModal(${habit.id})"><i class="fas fa-pen"></i></button>
-                <button class="icon-btn delete-btn" onclick="deleteHabit(${habit.id})"><i class="fas fa-trash"></i></button>
-            </div>
-        `;
+        div.innerHTML = `<div class="habit-info" onclick="toggleHabit(${habit.id})"><span class="habit-name truncate" onclick="toggleText(this, event)">${habit.name}</span><span class="habit-streak" style="color: ${isDoneToday ? 'var(--accent)' : 'var(--text-muted)'};">${isDoneToday ? 'Heute erledigt! 🙌' : 'Heute noch nicht'}</span></div>${actionHTML}<div class="action-btns"><button class="icon-btn edit-btn" onclick="openModal(${habit.id})"><i class="fas fa-pen"></i></button><button class="icon-btn delete-btn" onclick="deleteHabit(${habit.id})"><i class="fas fa-trash"></i></button></div>`;
     }
     return div;
 }
 
 function renderWeek() {
-    const dates = getPastDates(7);
-    let html = `<div class="week-grid">`;
+    const dates = getPastDates(7); let html = `<div class="week-grid">`;
     habits.forEach(habit => {
-        html += `<div class="week-row">
-                    <div class="week-name truncate" onclick="toggleText(this, event)">${habit.name}</div>
-                    <div class="week-days">`;
-        dates.forEach(date => {
-            const isDone = history[date]?.[habit.id] || false;
-            const dayChar = new Date(date).toLocaleDateString('de-DE', {weekday: 'short'}).charAt(0);
-            html += `<div class="day-circle ${isDone ? 'done' : ''}">${dayChar}</div>`;
-        });
+        html += `<div class="week-row"><div class="week-name truncate" onclick="toggleText(this, event)">${habit.name}</div><div class="week-days">`;
+        dates.forEach(date => { const isDone = history[date]?.[habit.id] || false; const dayChar = new Date(date).toLocaleDateString('de-DE', {weekday: 'short'}).charAt(0); html += `<div class="day-circle ${isDone ? 'done' : ''}">${dayChar}</div>`; });
         html += `</div></div>`;
     });
-    html += `</div>`;
-    appContent.innerHTML = html;
+    html += `</div>`; appContent.innerHTML = html;
 }
 
 // ===== PROGRESS BEREICH =====
@@ -249,7 +173,7 @@ function renderProgress() {
         <div class="section-title" style="margin-top:0;">📊 Gesamt-Trend (Letzte 7 Tage)</div>
         <div class="chart-container"><canvas id="progressChart"></canvas></div>
 
-        <div class="section-title">📅 Aktivitäts-Historie</div>
+        <div class="section-title">📅 Aktivitäts-Historie & Tagebuch</div>
         <div id="calendarContainer" class="calendar-container"></div>
 
         <div class="section-title">📈 Detaillierter Fortschritt</div>
@@ -264,7 +188,7 @@ function renderProgress() {
     appContent.innerHTML = html;
     
     renderChart();
-    renderCalendarHeatmap(); // NEU: Der Kalender wird geladen!
+    renderCalendarHeatmap();
     renderIndivStats();
 }
 
@@ -274,26 +198,21 @@ function renderChart() {
     const percentages = dates.map(date => {
         const dayHist = history[date] || {};
         if (dailyHabits.length === 0) return 0;
-        let done = 0;
-        dailyHabits.forEach(h => { if (dayHist[h.id]) done++; });
+        let done = 0; dailyHabits.forEach(h => { if (dayHist[h.id]) done++; });
         return Math.round((done / dailyHabits.length) * 100);
     });
 
     const displayDates = dates.map(d => new Date(d).toLocaleDateString('de-DE', {weekday: 'short'}));
     const ctx = document.getElementById('progressChart').getContext('2d');
-    
-    progressChart = new Chart(ctx, {
-        type: 'line', data: { labels: displayDates, datasets: [{ label: 'Erledigt (%)', data: percentages, borderColor: '#0ea5e9', backgroundColor: 'rgba(14, 165, 233, 0.2)', borderWidth: 3, fill: true, tension: 0.4, pointBackgroundColor: '#0f172a', pointBorderColor: '#0ea5e9', pointBorderWidth: 2, pointRadius: 4 }] },
-        options: { responsive: true, scales: { y: { beginAtZero: true, max: 100, ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } }, plugins: { legend: { display: false } } }
-    });
+    progressChart = new Chart(ctx, { type: 'line', data: { labels: displayDates, datasets: [{ label: 'Erledigt (%)', data: percentages, borderColor: '#0ea5e9', backgroundColor: 'rgba(14, 165, 233, 0.2)', borderWidth: 3, fill: true, tension: 0.4, pointBackgroundColor: '#0f172a', pointBorderColor: '#0ea5e9', pointBorderWidth: 2, pointRadius: 4 }] }, options: { responsive: true, scales: { y: { beginAtZero: true, max: 100, ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } }, plugins: { legend: { display: false } } } });
 }
 
 // =======================================================
-// 🔥 NEUE KALENDER HEATMAP LOGIK
+// 🔥 PHASE 1: KALENDER HEATMAP LOGIK (Fix & Tagebuch)
 // =======================================================
 function changeCalendarMonth(offset) {
     currentCalendarDate.setMonth(currentCalendarDate.getMonth() + offset);
-    renderCalendarHeatmap(); // Lädt nur den Kalender neu, nicht die ganze Seite!
+    renderCalendarHeatmap(); 
 }
 
 function renderCalendarHeatmap() {
@@ -304,45 +223,50 @@ function renderCalendarHeatmap() {
     const month = currentCalendarDate.getMonth();
     const monthNames = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
     
-    // Berechnen, an welchem Wochentag der Monat beginnt
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
-    
-    let startDayOfWeek = (firstDay.getDay() - 1 + 7) % 7; // Macht Montag zur 0, Sonntag zur 6
+    let startDayOfWeek = (firstDay.getDay() - 1 + 7) % 7; 
 
     let gridHtml = '';
     
-    // Leere Kästchen für die Tage vorm 1. des Monats
     for(let i = 0; i < startDayOfWeek; i++) {
         gridHtml += `<div class="heatmap-box empty"></div>`;
     }
 
-    // Die echten Tage (1 bis 31) ausfüllen
+    // Tägliche & Flexible Gewohnheiten trennen
+    const dailyHabits = habits.filter(h => h.type === 'daily');
+    const flexHabits = habits.filter(h => h.type !== 'daily');
+
     for(let i = 1; i <= daysInMonth; i++) {
-        // Formatiert das Datum exakt wie in unserer Datenbank (z.B. "2026-02-05")
         const dateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
         const dayHist = history[dateStr] || {};
         
-        let done = 0;
-        habits.forEach(h => { if (dayHist[h.id]) done++; });
-
-        let percent = habits.length === 0 ? 0 : (done / habits.length) * 100;
-        let lvl = 0; // 0 = Grau
+        // 1. STRIKTE BERECHNUNG: Farbe nur durch tägliche Routinen
+        let dailyDone = 0;
+        dailyHabits.forEach(h => { if (dayHist[h.id]) dailyDone++; });
         
-        if (percent >= 100 && habits.length > 0) lvl = 4; // Gold!
+        let percent = dailyHabits.length === 0 ? 0 : (dailyDone / dailyHabits.length) * 100;
+        let lvl = 0; 
+        if (percent >= 100 && dailyHabits.length > 0) lvl = 4; // Gold!
         else if (percent >= 75) lvl = 3;
         else if (percent >= 40) lvl = 2;
         else if (percent > 0) lvl = 1;
 
-        // Tooltip, wenn man drübergeht
-        const tooltip = `${i}. ${monthNames[month]}: ${done} erledigt`;
+        // 2. BONUS-RAND BERECHNUNG: Wurde ein Wochenziel an dem Tag gemacht?
+        let hasFlexDone = false;
+        flexHabits.forEach(h => { if (dayHist[h.id]) hasFlexDone = true; });
 
-        // Setzt die Zahl in die Mitte vom Kästchen
-        gridHtml += `<div class="heatmap-box lvl-${lvl}" title="${tooltip}">${i}</div>`;
+        let boxClasses = `lvl-${lvl}`;
+        if (hasFlexDone) boxClasses += " bonus-border";
+
+        // 3. TAGEBUCH-PUNKTE BERECHNUNG
+        let dotsHtml = notes[dateStr] ? `<div class="note-dots">...</div>` : '';
+
+        // Klickbar machen für das Tagebuch
+        gridHtml += `<div class="heatmap-box ${boxClasses}" onclick="openDiaryModal('${dateStr}')">${i}${dotsHtml}</div>`;
     }
 
-    // Setzt alles in den Container
     container.innerHTML = `
         <div class="calendar-header">
             <button class="icon-btn" onclick="changeCalendarMonth(-1)"><i class="fas fa-chevron-left"></i></button>
@@ -352,74 +276,74 @@ function renderCalendarHeatmap() {
         <div class="calendar-weekdays">
             <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span>
         </div>
-        <div class="heatmap-grid">
-            ${gridHtml}
-        </div>
+        <div class="heatmap-grid">${gridHtml}</div>
     `;
+}
+
+// =======================================================
+// 🔥 NEU: TAGEBUCH LOGIK (Modal & Speichern)
+// =======================================================
+function openDiaryModal(dateStr) {
+    const modal = document.getElementById("diaryModal");
+    document.getElementById("diaryDateTitle").textContent = formatDate(dateStr);
+    document.getElementById("diaryDateHidden").value = dateStr;
+    document.getElementById("diaryNoteInput").value = notes[dateStr] || "";
+
+    // Was wurde an dem Tag erledigt? (Für die coole Übersicht)
+    const dayHist = history[dateStr] || {};
+    let completedNames = [];
+    habits.forEach(h => { if (dayHist[h.id]) completedNames.push(h.name); });
+
+    const listEl = document.getElementById("diaryCompletedList");
+    if (completedNames.length > 0) {
+        listEl.innerHTML = `<strong>Erledigt:</strong> ${completedNames.join(', ')} ✅`;
+    } else {
+        listEl.innerHTML = `<em>Nichts erledigt an diesem Tag.</em>`;
+    }
+
+    modal.classList.remove("hidden");
+    document.getElementById("diaryNoteInput").focus();
+}
+
+function closeDiaryModal() {
+    document.getElementById("diaryModal").classList.add("hidden");
+}
+
+function saveDiaryNote() {
+    const dateStr = document.getElementById("diaryDateHidden").value;
+    const noteText = document.getElementById("diaryNoteInput").value.trim();
+
+    // Notiz speichern oder löschen (wenn leer)
+    if (noteText) { notes[dateStr] = noteText; } 
+    else { delete notes[dateStr]; }
+
+    localStorage.setItem("notes", JSON.stringify(notes));
+    closeDiaryModal();
+    renderCalendarHeatmap(); // Lädt den Kalender neu, damit die 3 Punkte auftauchen!
 }
 
 // =======================================================
 // EINZEL-STATS LOGIK
 // =======================================================
-function setStatFilter(filter, event) {
-    currentStatFilter = filter;
-    document.querySelectorAll('.stat-filter-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    renderIndivStats();
-}
-
+function setStatFilter(filter, event) { currentStatFilter = filter; document.querySelectorAll('.stat-filter-btn').forEach(btn => btn.classList.remove('active')); event.target.classList.add('active'); renderIndivStats(); }
 function renderIndivStats() {
-    const container = document.getElementById("indivStatsList");
-    if (!container) return;
+    const container = document.getElementById("indivStatsList"); if (!container) return;
     if (habits.length === 0) { container.innerHTML = `<p style="color:var(--text-muted); font-size:14px;">Keine Daten.</p>`; return; }
-
     let html = '';
     habits.forEach(habit => {
-        const stats = getProgressStats(habit, currentStatFilter);
-        let fillClass = ""; let textStyle = "color: var(--accent);";
-        
+        const stats = getProgressStats(habit, currentStatFilter); let fillClass = ""; let textStyle = "color: var(--accent);";
         if (stats.percent > 100) { fillClass = "overachiever"; textStyle = "color: var(--gold); font-weight: 800;"; }
         else if (stats.percent === 100) { fillClass = "perfect"; textStyle = "color: var(--success);"; }
-
-        html += `
-            <div class="stat-item">
-                <div class="stat-header">
-                    <span class="truncate" style="max-width: 60%;" onclick="toggleText(this, event)">${habit.name}</span>
-                    <span>${stats.done} / ${stats.target} <span style="${textStyle}">(${stats.percent}%)</span></span>
-                </div>
-                <div class="stat-bar-bg">
-                    <div class="stat-bar-fill ${fillClass}" style="width: ${Math.min(stats.percent, 100)}%;"></div>
-                </div>
-            </div>
-        `;
+        html += `<div class="stat-item"><div class="stat-header"><span class="truncate" style="max-width: 60%;" onclick="toggleText(this, event)">${habit.name}</span><span>${stats.done} / ${stats.target} <span style="${textStyle}">(${stats.percent}%)</span></span></div><div class="stat-bar-bg"><div class="stat-bar-fill ${fillClass}" style="width: ${Math.min(stats.percent, 100)}%;"></div></div></div>`;
     });
     container.innerHTML = html;
 }
-
 function getProgressStats(habit, timeframe) {
-    let days = 7;
-    if (timeframe === 'month') days = 30;
-    if (timeframe === 'year') days = 365;
-    if (timeframe === 'all') {
-        const allDates = Object.keys(history).sort();
-        if (allDates.length > 0) {
-            const firstDate = new Date(allDates[0]);
-            days = Math.ceil(Math.abs(new Date() - firstDate) / (1000 * 60 * 60 * 24)) + 1;
-        } else { days = 1; }
-    }
-
-    const datesToScan = getPastDates(days);
-    let doneCount = 0;
-    datesToScan.forEach(d => { if (history[d] && history[d][habit.id]) doneCount++; });
-
-    let targetTotal = 1;
-    if (habit.type === 'daily') targetTotal = days;
-    else if (habit.type === 'weekly') targetTotal = Math.ceil((days / 7) * habit.target);
-    else if (habit.type === 'monthly') targetTotal = Math.ceil((days / 30) * habit.target);
-    else if (habit.type === 'yearly') targetTotal = Math.ceil((days / 365) * habit.target);
-
-    const cappedTarget = targetTotal === 0 ? 1 : targetTotal;
-    let percent = Math.round((doneCount / cappedTarget) * 100);
+    let days = 7; if (timeframe === 'month') days = 30; if (timeframe === 'year') days = 365;
+    if (timeframe === 'all') { const allDates = Object.keys(history).sort(); if (allDates.length > 0) { days = Math.ceil(Math.abs(new Date() - new Date(allDates[0])) / (1000 * 60 * 60 * 24)) + 1; } else { days = 1; } }
+    const datesToScan = getPastDates(days); let doneCount = 0; datesToScan.forEach(d => { if (history[d] && history[d][habit.id]) doneCount++; });
+    let targetTotal = 1; if (habit.type === 'daily') targetTotal = days; else if (habit.type === 'weekly') targetTotal = Math.ceil((days / 7) * habit.target); else if (habit.type === 'monthly') targetTotal = Math.ceil((days / 30) * habit.target); else if (habit.type === 'yearly') targetTotal = Math.ceil((days / 365) * habit.target);
+    const cappedTarget = targetTotal === 0 ? 1 : targetTotal; let percent = Math.round((doneCount / cappedTarget) * 100);
     return { done: doneCount, target: cappedTarget, percent };
 }
 
@@ -434,62 +358,24 @@ function calculateStreak(habitId) {
     return streak;
 }
 
-// ===== MODAL =====
+// ===== HINZUFÜGEN MODAL =====
 function openModal(editId = null) {
-    const modal = document.getElementById("addModal");
-    const title = document.getElementById("modalTitle");
-    const nameInput = document.getElementById("habitName");
-    const typeSelect = document.getElementById("habitType");
-    const targetInput = document.getElementById("habitTarget");
-    const idInput = document.getElementById("editHabitId");
-
-    if (editId) {
-        const habit = habits.find(h => h.id === editId);
-        title.textContent = "Gewohnheit bearbeiten";
-        nameInput.value = habit.name;
-        typeSelect.value = habit.type || 'daily';
-        targetInput.value = habit.target || 1;
-        idInput.value = habit.id;
-    } else {
-        title.textContent = "Neue Gewohnheit";
-        nameInput.value = "";
-        typeSelect.value = "daily";
-        targetInput.value = 3;
-        idInput.value = "";
-    }
-
-    toggleTargetInput();
-    modal.classList.remove("hidden");
-    nameInput.focus();
+    const modal = document.getElementById("addModal"); const title = document.getElementById("modalTitle"); const nameInput = document.getElementById("habitName"); const typeSelect = document.getElementById("habitType"); const targetInput = document.getElementById("habitTarget"); const idInput = document.getElementById("editHabitId");
+    if (editId) { const habit = habits.find(h => h.id === editId); title.textContent = "Gewohnheit bearbeiten"; nameInput.value = habit.name; typeSelect.value = habit.type || 'daily'; targetInput.value = habit.target || 1; idInput.value = habit.id; } 
+    else { title.textContent = "Neue Gewohnheit"; nameInput.value = ""; typeSelect.value = "daily"; targetInput.value = 3; idInput.value = ""; }
+    toggleTargetInput(); modal.classList.remove("hidden"); nameInput.focus();
 }
-
 function toggleTargetInput() {
-    const type = document.getElementById("habitType").value;
-    const wrapper = document.getElementById("targetWrapper");
-    if (type === 'daily') wrapper.classList.add("hidden");
-    else wrapper.classList.remove("hidden");
+    const type = document.getElementById("habitType").value; const wrapper = document.getElementById("targetWrapper");
+    if (type === 'daily') wrapper.classList.add("hidden"); else wrapper.classList.remove("hidden");
 }
-
 function closeModal() { document.getElementById("addModal").classList.add("hidden"); }
-
 function saveNewHabit() {
-    const name = document.getElementById("habitName").value.trim();
-    const type = document.getElementById("habitType").value;
-    const target = parseInt(document.getElementById("habitTarget").value) || 1;
-    const editId = document.getElementById("editHabitId").value;
-
+    const name = document.getElementById("habitName").value.trim(); const type = document.getElementById("habitType").value; const target = parseInt(document.getElementById("habitTarget").value) || 1; const editId = document.getElementById("editHabitId").value;
     if (!name) return alert("Bitte einen Namen eingeben!");
-
-    if (editId) {
-        const habit = habits.find(h => h.id == editId);
-        if (habit) { habit.name = name; habit.type = type; habit.target = target; }
-    } else {
-        habits.push({ id: Date.now(), name: name, type: type, target: target });
-    }
-
-    localStorage.setItem("habits", JSON.stringify(habits));
-    closeModal();
-    init();
+    if (editId) { const habit = habits.find(h => h.id == editId); if (habit) { habit.name = name; habit.type = type; habit.target = target; } } 
+    else { habits.push({ id: Date.now(), name: name, type: type, target: target }); }
+    localStorage.setItem("habits", JSON.stringify(habits)); closeModal(); init();
 }
 
 // ===== START =====
