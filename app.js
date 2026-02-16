@@ -173,7 +173,7 @@ function setChartFilter(filter, event) {
 
 function renderChart() {
     let days = 7;
-    let isLongTerm = false; // NEU: Erkennt, ob wir in der Jahres-Ansicht sind
+    let isLongTerm = false;
 
     if (currentChartFilter === 'month') days = 30; 
     if (currentChartFilter === 'year') { days = 365; isLongTerm = true; }
@@ -181,13 +181,12 @@ function renderChart() {
         const diffTime = Math.abs(new Date() - new Date(appStartDate)); 
         days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
         if (days < 7) days = 7; 
-        if (days > 90) isLongTerm = true; // Ab 3 Monaten schalten wir in den Premium-Modus
+        if (days > 90) isLongTerm = true; 
     }
 
     const dates = getPastDates(days); 
     const dailyHabits = habits.filter(h => h.type === 'daily');
     
-    // 1. Zuerst ganz normal alle Tages-Prozente berechnen
     const dailyPercentages = dates.map(date => {
         if (dayStatusList[date] === 'sick' || dayStatusList[date] === 'vacation') return null; 
         const dayHist = history[date] || {}; if (dailyHabits.length === 0) return 0;
@@ -198,26 +197,21 @@ function renderChart() {
     let finalLabels = [];
     let finalData = [];
 
-    // 🔥 DER GENIALE FIX: Wenn das Diagramm zu lang ist, bündeln wir es in Wochen!
     if (isLongTerm) {
-        // Wir springen immer in 7-Tage-Schritten durch die Daten
         for (let i = 0; i < dates.length; i += 7) {
             let chunkData = dailyPercentages.slice(i, i + 7).filter(val => val !== null);
-            
             if (chunkData.length === 0) {
                 finalData.push(null);
             } else {
-                // Durchschnitt der Woche berechnen
                 let sum = chunkData.reduce((a, b) => a + b, 0);
                 finalData.push(Math.round(sum / chunkData.length));
             }
             
-            // Das Datum des ersten Tags der Woche als Label setzen
+            // 🔥 FIX 1: Statt genauem Datum, nur noch "Monat + Jahr" (z.B. "Feb 26")
             let dObj = new Date(dates[i]);
-            finalLabels.push(dObj.toLocaleDateString('de-DE', {day: '2-digit', month: 'short'}));
+            finalLabels.push(dObj.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' }));
         }
     } else {
-        // Normale Tages-Ansicht für "Woche" und "Monat"
         finalData = dailyPercentages;
         finalLabels = dates.map(d => { 
             let dateObj = new Date(d); 
@@ -229,9 +223,9 @@ function renderChart() {
     const ctx = document.getElementById('progressChart').getContext('2d');
     if (progressChart) { progressChart.destroy(); }
     
-    // Weil wir jetzt saubere Wochendaten haben, können die Punkte und dicken Linien bleiben!
-    let pRadius = isLongTerm ? 3 : 4; 
-    let pBorder = isLongTerm ? 1 : 2;
+    // 🔥 FIX 2: Die nervigen Punkte bei "Jahr" und "Alles" auf 0 setzen!
+    let pRadius = isLongTerm ? 0 : 4; 
+    let pBorder = isLongTerm ? 0 : 2;
 
     progressChart = new Chart(ctx, { 
         type: 'line', 
@@ -242,15 +236,15 @@ function renderChart() {
                 data: finalData, 
                 borderColor: '#0ea5e9', 
                 backgroundColor: 'rgba(14, 165, 233, 0.2)', 
-                borderWidth: 3, // Bleibt schön kräftig!
-                fill: true, // Die blaue Füllung sieht jetzt wieder geil aus
+                borderWidth: 3, 
+                fill: true, 
                 tension: 0.4, 
                 spanGaps: true, 
                 pointBackgroundColor: '#0f172a', 
                 pointBorderColor: '#0ea5e9', 
                 pointBorderWidth: pBorder, 
-                pointRadius: pRadius, 
-                pointHoverRadius: 6 
+                pointRadius: pRadius,          // Hier sind die Punkte unsichtbar!
+                pointHoverRadius: isLongTerm ? 4 : 6 // Beim Drauftippen taucht ein Punkt auf (für den Text)
             }] 
         }, 
         options: { 
@@ -258,7 +252,14 @@ function renderChart() {
             maintainAspectRatio: false, 
             scales: { 
                 y: { beginAtZero: true, max: 100, ticks: { color: '#94a3b8' } }, 
-                x: { ticks: { color: '#94a3b8', maxTicksLimit: 8 } } 
+                x: { 
+                    ticks: { 
+                        color: '#94a3b8', 
+                        // 🔥 FIX 3: Die App zeigt max. 6 Monats-Namen unten an, damit es extrem aufgeräumt aussieht
+                        maxTicksLimit: isLongTerm ? 6 : 7, 
+                        maxRotation: 0 // Zwingt den Text waagerecht zu bleiben
+                    } 
+                } 
             }, 
             plugins: { legend: { display: false } } 
         } 
