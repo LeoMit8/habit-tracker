@@ -173,62 +173,78 @@ function setChartFilter(filter, event) {
 
 function renderChart() {
     let days = 7;
+    let isLongTerm = false; // NEU: Erkennt, ob wir in der Jahres-Ansicht sind
+
     if (currentChartFilter === 'month') days = 30; 
-    if (currentChartFilter === 'year') days = 365;
+    if (currentChartFilter === 'year') { days = 365; isLongTerm = true; }
     if (currentChartFilter === 'all') { 
         const diffTime = Math.abs(new Date() - new Date(appStartDate)); 
         days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
         if (days < 7) days = 7; 
+        if (days > 90) isLongTerm = true; // Ab 3 Monaten schalten wir in den Premium-Modus
     }
 
     const dates = getPastDates(days); 
     const dailyHabits = habits.filter(h => h.type === 'daily');
     
-    const percentages = dates.map(date => {
+    // 1. Zuerst ganz normal alle Tages-Prozente berechnen
+    const dailyPercentages = dates.map(date => {
         if (dayStatusList[date] === 'sick' || dayStatusList[date] === 'vacation') return null; 
         const dayHist = history[date] || {}; if (dailyHabits.length === 0) return 0;
         let done = 0; dailyHabits.forEach(h => { if (dayHist[h.id]) done++; }); 
         return Math.round((done / dailyHabits.length) * 100);
     });
 
-    const displayDates = dates.map(d => { 
-        const dateObj = new Date(d); 
-        if (days <= 7) return dateObj.toLocaleDateString('de-DE', {weekday: 'short'}); 
-        if (days <= 30) return dateObj.toLocaleDateString('de-DE', {day: '2-digit', month: 'short'}); 
-        return dateObj.toLocaleDateString('de-DE', {day: '2-digit', month: 'short', year: '2-digit'}); 
-    });
+    let finalLabels = [];
+    let finalData = [];
+
+    // 🔥 DER GENIALE FIX: Wenn das Diagramm zu lang ist, bündeln wir es in Wochen!
+    if (isLongTerm) {
+        // Wir springen immer in 7-Tage-Schritten durch die Daten
+        for (let i = 0; i < dates.length; i += 7) {
+            let chunkData = dailyPercentages.slice(i, i + 7).filter(val => val !== null);
+            
+            if (chunkData.length === 0) {
+                finalData.push(null);
+            } else {
+                // Durchschnitt der Woche berechnen
+                let sum = chunkData.reduce((a, b) => a + b, 0);
+                finalData.push(Math.round(sum / chunkData.length));
+            }
+            
+            // Das Datum des ersten Tags der Woche als Label setzen
+            let dObj = new Date(dates[i]);
+            finalLabels.push(dObj.toLocaleDateString('de-DE', {day: '2-digit', month: 'short'}));
+        }
+    } else {
+        // Normale Tages-Ansicht für "Woche" und "Monat"
+        finalData = dailyPercentages;
+        finalLabels = dates.map(d => { 
+            let dateObj = new Date(d); 
+            if (days <= 7) return dateObj.toLocaleDateString('de-DE', {weekday: 'short'}); 
+            return dateObj.toLocaleDateString('de-DE', {day: '2-digit', month: 'short'}); 
+        });
+    }
 
     const ctx = document.getElementById('progressChart').getContext('2d');
     if (progressChart) { progressChart.destroy(); }
     
-    // 🔥 DER FIX: Smarte Diagramm-Darstellung für lange Zeiträume
-    let isLongTerm = days > 30;
-    
-    let pRadius = isLongTerm ? 0 : 4; 
-    let pBorder = isLongTerm ? 0 : 2;
-    
-    // 1. Die Füllung ausschalten, damit es nicht mehr "ausgemalt" aussieht
-    let showFillArea = isLongTerm ? false : true; 
-    
-    // 2. Die Linie ausdünnen und leicht transparent machen (gegen Farbklumpen)
-    let lineThickness = isLongTerm ? 1 : 3;
-    let lineColor = isLongTerm ? 'rgba(14, 165, 233, 0.7)' : '#0ea5e9';
-    
-    // 3. Die Kurven glätten (verhindert das Überschneiden von Loops)
-    let lineTension = isLongTerm ? 0.1 : 0.4;
+    // Weil wir jetzt saubere Wochendaten haben, können die Punkte und dicken Linien bleiben!
+    let pRadius = isLongTerm ? 3 : 4; 
+    let pBorder = isLongTerm ? 1 : 2;
 
     progressChart = new Chart(ctx, { 
         type: 'line', 
         data: { 
-            labels: displayDates, 
+            labels: finalLabels, 
             datasets: [{ 
                 label: 'Erledigt (%)', 
-                data: percentages, 
-                borderColor: lineColor, 
+                data: finalData, 
+                borderColor: '#0ea5e9', 
                 backgroundColor: 'rgba(14, 165, 233, 0.2)', 
-                borderWidth: lineThickness, 
-                fill: showFillArea,       // <-- Hier greift der neue Fix!
-                tension: lineTension,     // <-- Hier werden die Schlaufen geglättet!
+                borderWidth: 3, // Bleibt schön kräftig!
+                fill: true, // Die blaue Füllung sieht jetzt wieder geil aus
+                tension: 0.4, 
                 spanGaps: true, 
                 pointBackgroundColor: '#0f172a', 
                 pointBorderColor: '#0ea5e9', 
@@ -242,7 +258,7 @@ function renderChart() {
             maintainAspectRatio: false, 
             scales: { 
                 y: { beginAtZero: true, max: 100, ticks: { color: '#94a3b8' } }, 
-                x: { ticks: { color: '#94a3b8', maxTicksLimit: 7 } } 
+                x: { ticks: { color: '#94a3b8', maxTicksLimit: 8 } } 
             }, 
             plugins: { legend: { display: false } } 
         } 
