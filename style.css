@@ -14,7 +14,6 @@
 body { background-color: var(--bg-color); color: var(--text-main); padding-bottom: 100px; }
 .hidden { display: none !important; }
 
-/* === HEADER === */
 header { background-color: var(--card-bg); padding: 20px; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); position: sticky; top: 0; z-index: 10; }
 .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
 #dateDisplay { font-size: 24px; font-weight: bold; }
@@ -25,20 +24,16 @@ header { background-color: var(--card-bg); padding: 20px; border-bottom-left-rad
 .progress-bar-bg { background: #334155; height: 10px; border-radius: 5px; overflow: hidden; }
 .progress-bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.4s ease-out; box-shadow: 0 0 10px var(--accent-glow); }
 
-/* === TABS === */
 .tabs { display: flex; background: var(--bg-color); border-radius: 12px; padding: 4px; }
 .tab-btn { flex: 1; background: transparent; border: none; color: var(--text-muted); padding: 10px 0; font-weight: 600; font-size: 14px; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
 .tab-btn.active { background: var(--card-bg); color: var(--accent); box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
 
-/* === MAIN CONTENT === */
 main { padding: 20px; }
 .section-title { font-size: 14px; font-weight: bold; color: var(--text-muted); margin-top: 25px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
 
-/* === PREMIUM LÖSUNG: LANGE TEXTE === */
 .truncate { display: inline-block; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; transition: all 0.3s ease; }
 .truncate.expanded { white-space: normal; word-break: break-word; max-width: 100%; text-overflow: clip; }
 
-/* === EXCEL STYLE LIST === */
 .habit-item { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 16px 20px; margin-bottom: 10px; border-radius: 12px; }
 .habit-info { display: flex; flex-direction: column; gap: 4px; cursor: pointer; flex-grow: 1; }
 .habit-name { font-size: 16px; font-weight: 600; }
@@ -58,7 +53,6 @@ main { padding: 20px; }
 .edit-btn { color: var(--accent); }
 .delete-btn { color: var(--danger); }
 
-/* === WEEKS VIEW === */
 .week-grid { background: var(--card-bg); border-radius: 12px; padding: 15px; overflow-x: auto; }
 .week-row { display: flex; align-items: center; border-bottom: 1px solid #334155; padding: 10px 0; }
 .week-row:last-child { border-bottom: none; }
@@ -67,7 +61,6 @@ main { padding: 20px; }
 .day-circle { width: 24px; height: 24px; border-radius: 50%; background: #334155; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--text-muted); }
 .day-circle.done { background: var(--accent); color: var(--bg-color); }
 
-/* === PROGRESS VIEW (Chart & Einzel-Stats) === */
 .chart-container { background: var(--card-bg); padding: 15px; border-radius: 12px; }
 .stat-filters { display: flex; background: #334155; border-radius: 8px; padding: 3px; margin-bottom: 15px; }
 .stat-filter-btn { flex: 1; background: transparent; border: none; color: var(--text-muted); padding: 8px 0; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
@@ -80,7 +73,7 @@ main { padding: 20px; }
 .stat-bar-fill.overachiever { background: var(--gold); box-shadow: 0 0 8px rgba(245, 158, 11, 0.6); }
 
 /* =======================================================
-   🔥 PHASE 1: KALENDER HEATMAP + TAGEBUCH PUNKTE
+   🔥 PHASE 2: KALENDER & EXTREME GAMIFICATION
    ======================================================= */
 .calendar-container { background: var(--card-bg); border-radius: 12px; overflow: hidden; margin-bottom: 20px; }
 .calendar-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: #182235; border-bottom: 1px solid #334155; }
@@ -92,13 +85,10 @@ main { padding: 20px; }
     width: 100%; aspect-ratio: 1; border-radius: 6px; 
     display: flex; align-items: center; justify-content: center; 
     font-size: 14px; font-weight: bold; 
-    transition: transform 0.1s; 
-    position: relative; /* Wichtig für die Notiz-Punkte */
-    cursor: pointer; /* Zeigt, dass es klickbar ist! */
+    transition: transform 0.1s; position: relative; cursor: pointer; 
 }
 .heatmap-box:hover { transform: scale(1.05); }
 
-/* Farben der Kästchen (NUR für tägliche Routinen) */
 .heatmap-box.empty { background: transparent; cursor: default; }
 .heatmap-box.empty:hover { transform: none; }
 .heatmap-box.lvl-0 { background: #334155; color: var(--text-muted); }
@@ -107,30 +97,23 @@ main { padding: 20px; }
 .heatmap-box.lvl-3 { background: rgba(14, 165, 233, 0.9); color: #fff; }
 .heatmap-box.lvl-4 { background: var(--gold); color: #000; box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
 
-/* 🔥 NEU: Der leuchtende Rand für Wochenziele (Bonus) */
-.heatmap-box.bonus-border {
-    box-shadow: inset 0 0 0 2px var(--accent), 0 0 6px var(--accent-glow);
+/* 1. DAS DOG-EAR (Eselsohr für Flex-Ziele) */
+.dog-ear::after {
+    content: ''; position: absolute; top: 0; right: 0;
+    border-width: 0 12px 12px 0; border-style: solid;
+    border-color: transparent var(--accent) transparent transparent;
+    border-top-right-radius: 5px;
 }
-/* Wenn es Gold UND Bonus ist, machen wir den Schatten etwas stärker */
-.heatmap-box.lvl-4.bonus-border {
-    box-shadow: inset 0 0 0 2px var(--accent), 0 0 10px rgba(245, 158, 11, 0.8);
+/* 2. DIE KRONE (Ziel abgeschlossen!) */
+.crown-icon {
+    position: absolute; top: -10px; right: -8px; 
+    font-size: 14px; transform: rotate(15deg); 
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); z-index: 5;
+    animation: popIn 0.3s ease-out;
 }
-
-/* 🔥 NEU: Die 3 winzigen Punkte für das Tagebuch */
-.note-dots {
-    position: absolute;
-    bottom: 2px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 12px;
-    line-height: 0.5;
-    letter-spacing: 1.5px;
-    color: rgba(255, 255, 255, 0.6);
-    pointer-events: none; /* Man klickt durch sie hindurch */
-}
-/* Auf Gold müssen die Punkte dunkel sein, damit man sie sieht */
+/* Die 3 Punkte (Tagebuch) */
+.note-dots { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); font-size: 12px; line-height: 0.5; letter-spacing: 1.5px; color: rgba(255, 255, 255, 0.6); pointer-events: none; }
 .heatmap-box.lvl-4 .note-dots { color: rgba(0, 0, 0, 0.5); }
-
 
 /* === FAB & MODAL === */
 #addBtn { position: fixed; right: 25px; bottom: 25px; background: var(--accent); border: none; border-radius: 50%; width: 60px; height: 60px; color: var(--bg-color); font-size: 24px; box-shadow: 0 4px 15px var(--accent-glow); cursor: pointer; z-index: 100; transition: transform 0.2s; }
@@ -138,10 +121,12 @@ main { padding: 20px; }
 .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(5px); }
 .modal-content { background: var(--card-bg); padding: 25px; border-radius: 20px; width: 90%; max-width: 400px; }
 .modal-content h2 { margin-bottom: 20px; }
-.modal-content input, .modal-content select { width: 100%; padding: 12px; margin-bottom: 15px; background: var(--bg-color); border: 1px solid #334155; color: white; border-radius: 8px; font-size: 16px; }
+.modal-content input, .modal-content select, .modal-content textarea { width: 100%; padding: 12px; margin-bottom: 15px; background: var(--bg-color); border: 1px solid #334155; color: white; border-radius: 8px; font-size: 16px; }
 
-/* Textarea für das Tagebuch */
-.modal-content textarea { width: 100%; padding: 12px; margin-bottom: 15px; background: var(--bg-color); border: 1px solid #334155; color: white; border-radius: 8px; font-size: 14px; resize: vertical; }
+/* Status Selector (Krank/Urlaub) */
+.status-selector { display: flex; gap: 8px; margin-bottom: 15px; }
+.status-btn { flex: 1; padding: 10px 5px; background: #334155; border: 2px solid transparent; border-radius: 8px; color: white; cursor: pointer; transition: 0.2s; font-size: 13px; font-weight: bold; }
+.status-btn.active { border-color: var(--accent); background: rgba(14, 165, 233, 0.2); }
 
 .modal-actions { display: flex; gap: 10px; margin-top: 10px; }
 .modal-actions button { flex: 1; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; border: none; cursor: pointer; }
