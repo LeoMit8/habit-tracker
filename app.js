@@ -1,156 +1,236 @@
+// ===== DATEN LADEN =====
+
 let habits = JSON.parse(localStorage.getItem("habits")) || [];
+let history = JSON.parse(localStorage.getItem("history")) || {};
 
-const dateEl = document.getElementById("date");
-const goalEl = document.getElementById("dailyGoal");
-const listEl = document.getElementById("habitList");
+const habitsContainer = document.getElementById("habits");
+const progressBtn = document.getElementById("progressBtn");
+const progressScreen = document.getElementById("progressScreen");
+const backBtn = document.getElementById("backBtn");
 
-let view = "day";
+// ===== HEUTIGES DATUM =====
 
-const today = new Date().toISOString().split("T")[0];
-dateEl.textContent = new Date().toLocaleDateString();
-
-function setView(v) {
-    view = v;
-    render();
+function todayKey() {
+  return new Date().toISOString().split("T")[0];
 }
 
-document.getElementById("addBtn").onclick = () => {
-    const name = prompt("Name der Gewohnheit:");
-    if (!name) return;
+// ===== GEWOHNHEIT HINZUFÜGEN =====
 
-    habits.push({
-        name,
-        history: {}
+function addHabit() {
+  const name = prompt("Name der Gewohnheit:");
+  if (!name) return;
+
+  const perWeek = parseInt(prompt("Wie oft pro Woche?"), 10) || 7;
+
+  const habit = {
+    id: Date.now(),
+    name,
+    perWeek
+  };
+
+  habits.push(habit);
+  saveHabits();
+  renderHabits();
+}
+
+function saveHabits() {
+  localStorage.setItem("habits", JSON.stringify(habits));
+}
+
+// ===== ABHAKEN =====
+
+function toggleHabit(habitId) {
+  const today = todayKey();
+
+  if (!history[today]) history[today] = {};
+
+  history[today][habitId] = !history[today][habitId];
+
+  localStorage.setItem("history", JSON.stringify(history));
+  renderHabits();
+}
+
+// ===== GEWOHNHEITEN ANZEIGEN =====
+
+function renderHabits() {
+  habitsContainer.innerHTML = "";
+
+  habits.forEach(habit => {
+    const habitDiv = document.createElement("div");
+    habitDiv.className = "habit";
+
+    const name = document.createElement("span");
+    name.textContent = habit.name;
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+
+    const today = todayKey();
+    checkbox.checked = history[today]?.[habit.id] || false;
+
+    checkbox.onclick = () => toggleHabit(habit.id);
+
+    habitDiv.appendChild(name);
+    habitDiv.appendChild(checkbox);
+
+    // ===== LONG PRESS FÜR LÖSCHEN =====
+
+    let pressTimer;
+
+    habitDiv.addEventListener("mousedown", startPress);
+    habitDiv.addEventListener("touchstart", startPress);
+
+    habitDiv.addEventListener("mouseup", cancelPress);
+    habitDiv.addEventListener("mouseleave", cancelPress);
+    habitDiv.addEventListener("touchend", cancelPress);
+
+    function startPress() {
+      pressTimer = setTimeout(() => {
+        enterDeleteMode(habitDiv, habit.id);
+      }, 600);
+    }
+
+    function cancelPress() {
+      clearTimeout(pressTimer);
+    }
+
+    habitsContainer.appendChild(habitDiv);
+  });
+}
+
+// ===== DELETE MODE =====
+
+function enterDeleteMode(habitDiv, habitId) {
+  habitDiv.classList.add("delete-mode");
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.textContent = "🗑️";
+  deleteBtn.className = "delete-btn";
+
+  deleteBtn.onclick = () => {
+    if (confirm("Gewohnheit wirklich löschen?")) {
+      deleteHabit(habitId);
+    }
+  };
+
+  habitDiv.appendChild(deleteBtn);
+}
+
+// ===== GEWOHNHEIT LÖSCHEN =====
+
+function deleteHabit(habitId) {
+  habits = habits.filter(h => h.id !== habitId);
+
+  // Auch aus History entfernen
+  Object.keys(history).forEach(date => {
+    delete history[date][habitId];
+  });
+
+  localStorage.setItem("history", JSON.stringify(history));
+  saveHabits();
+  renderHabits();
+}
+
+// ===== FORTSCHRITT =====
+
+function calculateProgress() {
+  const days = Object.keys(history).slice(-7);
+
+  let totalDone = 0;
+  let totalTarget = 0;
+
+  habits.forEach(habit => {
+    const targetPerWeek = habit.perWeek;
+
+    let done = 0;
+
+    days.forEach(day => {
+      if (history[day]?.[habit.id]) done++;
     });
 
-    save();
-    render();
+    totalDone += Math.min(done, targetPerWeek);
+    totalTarget += targetPerWeek;
+  });
+
+  const percent = totalTarget === 0
+    ? 0
+    : Math.round((totalDone / totalTarget) * 100);
+
+  return percent;
+}
+
+// ===== PROGRESS SCREEN =====
+
+progressBtn.onclick = () => {
+  document.getElementById("mainScreen").style.display = "none";
+  progressScreen.style.display = "block";
+
+  document.getElementById("progressPercent").textContent =
+    calculateProgress() + "%";
+
+  drawChart();
 };
 
-function toggleHabit(index, date = today) {
-    const h = habits[index];
-    h.history[date] = !h.history[date];
+backBtn.onclick = () => {
+  progressScreen.style.display = "none";
+  document.getElementById("mainScreen").style.display = "block";
+};
 
-    save();
-    render();
-}
+// ===== LINIENDIAGRAMM =====
 
-function save() {
-    localStorage.setItem("habits", JSON.stringify(habits));
-}
+function drawChart() {
+  const canvas = document.getElementById("chart");
+  const ctx = canvas.getContext("2d");
 
-function render() {
-    listEl.innerHTML = "";
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (view === "day") renderDay();
-    if (view === "week") renderWeek();
-    if (view === "progress") renderProgress();
-}
+  const days = Object.keys(history).slice(-7);
 
-function renderDay() {
-    let doneCount = 0;
+  const values = days.map(day => {
+    let done = 0;
 
-    habits.forEach((h, i) => {
-        const done = h.history[today];
-        if (done) doneCount++;
-
-        const div = document.createElement("div");
-        div.className = "habit";
-
-        div.innerHTML = `
-            <span onclick="toggleHabit(${i})">${h.name}</span>
-            <input type="checkbox" ${done ? "checked" : ""} onclick="toggleHabit(${i})">
-        `;
-
-        listEl.appendChild(div);
+    habits.forEach(habit => {
+      if (history[day]?.[habit.id]) done++;
     });
 
-    goalEl.textContent = `Heute erledigt: ${doneCount} / ${habits.length}`;
+    return habits.length === 0
+      ? 0
+      : Math.round((done / habits.length) * 100);
+  });
+
+  const stepX = canvas.width / 7;
+
+  ctx.beginPath();
+  ctx.moveTo(0, canvas.height);
+
+  values.forEach((v, i) => {
+    const x = i * stepX;
+    const y = canvas.height - (v / 100) * canvas.height;
+    ctx.lineTo(x, y);
+  });
+
+  ctx.lineTo(canvas.width, canvas.height);
+  ctx.closePath();
+
+  ctx.fillStyle = "rgba(173,216,230,0.5)";
+  ctx.fill();
+
+  // Linie oben
+  ctx.beginPath();
+
+  values.forEach((v, i) => {
+    const x = i * stepX;
+    const y = canvas.height - (v / 100) * canvas.height;
+
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+
+  ctx.strokeStyle = "#007bff";
+  ctx.lineWidth = 2;
+  ctx.stroke();
 }
 
-function renderWeek() {
-    goalEl.textContent = "Letzte 7 Tage";
+// ===== START =====
 
-    const days = [];
-
-    for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        days.push(d.toISOString().split("T")[0]);
-    }
-
-    habits.forEach((h, i) => {
-        const div = document.createElement("div");
-        div.className = "habit";
-
-        let row = `<span>${h.name}</span>`;
-
-        days.forEach(d => {
-            const done = h.history[d];
-            row += `
-                <input type="checkbox"
-                ${done ? "checked" : ""}
-                onclick="toggleHabit(${i}, '${d}')">
-            `;
-        });
-
-        div.innerHTML = row;
-        listEl.appendChild(div);
-    });
-}
-
-function renderProgress() {
-    goalEl.textContent = "Fortschritt";
-
-    habits.forEach(h => {
-        const div = document.createElement("div");
-        div.className = "habit";
-
-        const percent = calculatePercent(h);
-        const streak = calculateStreak(h);
-
-        div.innerHTML = `
-            <span>${h.name}</span>
-            <span>${percent}% | 🔥 ${streak}</span>
-        `;
-
-        listEl.appendChild(div);
-    });
-
-    const total = calculateTotal();
-    const totalDiv = document.createElement("div");
-    totalDiv.className = "habit";
-    totalDiv.innerHTML = `<b>Gesamt</b> <b>${total}%</b>`;
-    listEl.appendChild(totalDiv);
-}
-
-function calculatePercent(h) {
-    const dates = Object.keys(h.history);
-    if (dates.length === 0) return 0;
-
-    const done = dates.filter(d => h.history[d]).length;
-    return Math.round((done / dates.length) * 100);
-}
-
-function calculateStreak(h) {
-    let streak = 0;
-    let d = new Date();
-
-    while (true) {
-        const key = d.toISOString().split("T")[0];
-        if (h.history[key]) {
-            streak++;
-            d.setDate(d.getDate() - 1);
-        } else break;
-    }
-
-    return streak;
-}
-
-function calculateTotal() {
-    let sum = 0;
-    habits.forEach(h => sum += calculatePercent(h));
-    return habits.length ? Math.round(sum / habits.length) : 0;
-}
-
-render();
+renderHabits();
