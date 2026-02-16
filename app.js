@@ -3,6 +3,7 @@ let habits = JSON.parse(localStorage.getItem("habits")) || [];
 let history = JSON.parse(localStorage.getItem("history")) || {};
 let currentTab = 'today';
 let progressChart = null;
+let currentStatFilter = 'week'; // Für Einzel-Fortschritt (week, month, all)
 
 // DOM Elemente
 const appContent = document.getElementById("appContent");
@@ -22,6 +23,7 @@ function formatDate(dateString) {
     return new Date(dateString).toLocaleDateString('de-DE', options);
 }
 
+// Gibt die letzten X Tage zurück (älteste zuerst, damit Diagramme & Heatmap von links nach rechts laufen)
 function getPastDates(days) {
     const dates = [];
     for (let i = days - 1; i >= 0; i--) {
@@ -30,6 +32,12 @@ function getPastDates(days) {
         dates.push(d.toISOString().split("T")[0]);
     }
     return dates;
+}
+
+// Text ausklappen wenn er abgeschnitten ist
+function toggleText(element, event) {
+    if(event) event.stopPropagation(); // Verhindert, dass die Gewohnheit abgehakt wird beim Klick auf den Text
+    element.classList.toggle('expanded');
 }
 
 // ===== CORE LOGIK =====
@@ -63,12 +71,8 @@ function updateHeader() {
     dailyGoalPercent.textContent = `${percent}%`;
     progressBar.style.width = `${percent}%`;
 
-    // Perfect Day Check
-    if (percent === 100 && habits.length > 0) {
-        perfectDayBadge.classList.remove("hidden");
-    } else {
-        perfectDayBadge.classList.add("hidden");
-    }
+    if (percent === 100 && habits.length > 0) perfectDayBadge.classList.remove("hidden");
+    else perfectDayBadge.classList.add("hidden");
 }
 
 function toggleHabit(habitId) {
@@ -83,7 +87,7 @@ function toggleHabit(habitId) {
 }
 
 function deleteHabit(habitId) {
-    if(confirm("Wirklich löschen?")) {
+    if(confirm("Wirklich löschen? Alle Daten dazu gehen verloren.")) {
         habits = habits.filter(h => h.id !== habitId);
         localStorage.setItem("habits", JSON.stringify(habits));
         updateHeader();
@@ -94,7 +98,6 @@ function deleteHabit(habitId) {
 // ===== VIEWS (Ansichten) =====
 function switchTab(tab) {
     currentTab = tab;
-    // UI Update für Tabs
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     event.target.classList.add('active');
     renderView();
@@ -118,19 +121,20 @@ function renderToday() {
 
     habits.forEach(habit => {
         const isDone = todayHistory[habit.id] || false;
-        
-        // Simulierter Streak (Später können wir hier echte Logik einbauen)
         const streak = calculateStreak(habit.id);
 
         const div = document.createElement("div");
         div.className = "habit-item";
         div.innerHTML = `
             <div class="habit-info" onclick="toggleHabit(${habit.id})">
-                <span class="habit-name">${habit.name}</span>
+                <span class="habit-name truncate" onclick="toggleText(this, event)">${habit.name}</span>
                 <span class="habit-streak"><i class="fas fa-fire"></i> ${streak} Tage Streak</span>
             </div>
             <div class="checkbox ${isDone ? 'checked' : ''}" onclick="toggleHabit(${habit.id})"></div>
-            <button class="delete-btn" onclick="deleteHabit(${habit.id})"><i class="fas fa-trash"></i></button>
+            <div class="action-btns">
+                <button class="icon-btn edit-btn" onclick="openModal(${habit.id})"><i class="fas fa-pen"></i></button>
+                <button class="icon-btn delete-btn" onclick="deleteHabit(${habit.id})"><i class="fas fa-trash"></i></button>
+            </div>
         `;
         appContent.appendChild(div);
     });
@@ -143,12 +147,11 @@ function renderWeek() {
     
     habits.forEach(habit => {
         html += `<div class="week-row">
-                    <div class="week-name">${habit.name}</div>
+                    <div class="week-name truncate" onclick="toggleText(this, event)">${habit.name}</div>
                     <div class="week-days">`;
         
         dates.forEach(date => {
             const isDone = history[date]?.[habit.id] || false;
-            // Zeigt den Wochentag als Buchstaben an (z.B. M, D, M)
             const dayChar = new Date(date).toLocaleDateString('de-DE', {weekday: 'short'}).charAt(0);
             html += `<div class="day-circle ${isDone ? 'done' : ''}">${dayChar}</div>`;
         });
@@ -160,7 +163,39 @@ function renderWeek() {
     appContent.innerHTML = html;
 }
 
+// ===== PROGRESS BEREICH (Diagramm + Heatmap + Einzel-Stats) =====
 function renderProgress() {
+    if (progressChart) {
+        progressChart.destroy();
+        progressChart = null;
+    }
+
+    let html = `
+        <div class="section-title" style="margin-top:0;">Letzte 7 Tage Gesamt</div>
+        <div class="chart-container">
+            <canvas id="progressChart"></canvas>
+        </div>
+
+        <div class="section-title">Aktivitäts-Heatmap (Letzte 90 Tage)</div>
+        <div class="heatmap-grid" id="heatmapGrid"></div>
+
+        <div class="section-title">Einzel-Fortschritt</div>
+        <div class="stat-filters">
+            <button class="stat-filter-btn ${currentStatFilter === 'week' ? 'active' : ''}" onclick="setStatFilter('week', event)">Woche</button>
+            <button class="stat-filter-btn ${currentStatFilter === 'month' ? 'active' : ''}" onclick="setStatFilter('month', event)">Monat</button>
+            <button class="stat-filter-btn ${currentStatFilter === 'all' ? 'active' : ''}" onclick="setStatFilter('all', event)">Alles</button>
+        </div>
+        <div id="indivStatsList"></div>
+    `;
+    
+    appContent.innerHTML = html;
+
+    renderChart();
+    renderHeatmap();
+    renderIndivStats();
+}
+
+function renderChart() {
     const dates = getPastDates(7);
     const percentages = dates.map(date => {
         const dayHist = history[date] || {};
@@ -171,19 +206,8 @@ function renderProgress() {
     });
 
     const displayDates = dates.map(d => new Date(d).toLocaleDateString('de-DE', {weekday: 'short'}));
-
-    appContent.innerHTML = `
-        <h3 style="margin-bottom: 10px;">Letzte 7 Tage</h3>
-        <div class="chart-container">
-            <canvas id="progressChart"></canvas>
-        </div>
-    `;
-
     const ctx = document.getElementById('progressChart').getContext('2d');
     
-    if (progressChart) progressChart.destroy();
-
-    // LINIENDIAGRAMM MIT HELLBLAUER FLÄCHE (Genau wie gewünscht)
     progressChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -191,11 +215,11 @@ function renderProgress() {
             datasets: [{
                 label: 'Erledigt (%)',
                 data: percentages,
-                borderColor: '#0ea5e9', /* Hellblau */
-                backgroundColor: 'rgba(14, 165, 233, 0.2)', /* Transparente Füllung */
+                borderColor: '#0ea5e9',
+                backgroundColor: 'rgba(14, 165, 233, 0.2)',
                 borderWidth: 3,
                 fill: true,
-                tension: 0.4, /* Macht die Linie geschmeidig */
+                tension: 0.4,
                 pointBackgroundColor: '#0f172a',
                 pointBorderColor: '#0ea5e9',
                 pointBorderWidth: 2,
@@ -213,6 +237,100 @@ function renderProgress() {
     });
 }
 
+function renderHeatmap() {
+    const grid = document.getElementById("heatmapGrid");
+    if (!grid) return;
+
+    const dates = getPastDates(90); // 90 Tage
+    let html = '';
+
+    dates.forEach(date => {
+        const dayHist = history[date] || {};
+        let done = 0;
+        habits.forEach(h => { if (dayHist[h.id]) done++; });
+
+        let percent = habits.length === 0 ? 0 : (done / habits.length) * 100;
+        let lvl = 0;
+        
+        if (percent === 100 && habits.length > 0) lvl = 4; // Perfect Day
+        else if (percent >= 75) lvl = 3;
+        else if (percent >= 40) lvl = 2;
+        else if (percent > 0) lvl = 1;
+
+        const dateStr = new Date(date).toLocaleDateString('de-DE');
+        const tooltip = `${dateStr}: ${done}/${habits.length} erledigt`;
+
+        html += `<div class="heatmap-box lvl-${lvl}" title="${tooltip}"></div>`;
+    });
+
+    grid.innerHTML = html;
+}
+
+function setStatFilter(filter, event) {
+    currentStatFilter = filter;
+    document.querySelectorAll('.stat-filter-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    renderIndivStats();
+}
+
+function renderIndivStats() {
+    const container = document.getElementById("indivStatsList");
+    if (!container) return;
+
+    if (habits.length === 0) {
+        container.innerHTML = `<p style="color:var(--text-muted); font-size:14px;">Keine Daten.</p>`;
+        return;
+    }
+
+    let html = '';
+    habits.forEach(habit => {
+        const stats = getProgressStats(habit, currentStatFilter);
+        const isPerfect = stats.percent >= 100;
+
+        html += `
+            <div class="stat-item">
+                <div class="stat-header">
+                    <span class="truncate" style="max-width: 60%;" onclick="toggleText(this, event)">${habit.name}</span>
+                    <span>${stats.done} / ${stats.target} <span style="color:${isPerfect ? '#f59e0b' : 'var(--accent)'};">(${stats.percent}%)</span></span>
+                </div>
+                <div class="stat-bar-bg">
+                    <div class="stat-bar-fill ${isPerfect ? 'perfect' : ''}" style="width: ${Math.min(stats.percent, 100)}%;"></div>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function getProgressStats(habit, timeframe) {
+    let days = 7;
+    if (timeframe === 'month') days = 30;
+    if (timeframe === 'all') {
+        const allDates = Object.keys(history).sort();
+        if (allDates.length > 0) {
+            const firstDate = new Date(allDates[0]);
+            const diffTime = Math.abs(new Date() - firstDate);
+            days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        } else {
+            days = 1;
+        }
+    }
+
+    const datesToScan = getPastDates(days);
+    let doneCount = 0;
+    
+    datesToScan.forEach(d => {
+        if (history[d] && history[d][habit.id]) doneCount++;
+    });
+
+    const targetTotal = Math.ceil((days / 7) * habit.perWeek);
+    const cappedTarget = targetTotal === 0 ? 1 : targetTotal;
+
+    let percent = Math.round((doneCount / cappedTarget) * 100);
+    return { done: doneCount, target: cappedTarget, percent };
+}
+
 // ===== LOGIK: STREAK BERECHNEN =====
 function calculateStreak(habitId) {
     let streak = 0;
@@ -224,7 +342,6 @@ function calculateStreak(habitId) {
             streak++;
             d.setDate(d.getDate() - 1);
         } else if (dateStr === getToday()) {
-            // Wenn heute noch nicht gemacht, prüfe gestern
             d.setDate(d.getDate() - 1);
         } else {
             break;
@@ -233,30 +350,61 @@ function calculateStreak(habitId) {
     return streak;
 }
 
-// ===== MODAL (Gewohnheit hinzufügen) =====
-function openModal() {
-    document.getElementById("addModal").classList.remove("hidden");
-    document.getElementById("habitName").focus();
+// ===== MODAL (Hinzufügen & Bearbeiten) =====
+function openModal(editId = null) {
+    const modal = document.getElementById("addModal");
+    const title = document.getElementById("modalTitle");
+    const nameInput = document.getElementById("habitName");
+    const freqInput = document.getElementById("habitFreq");
+    const idInput = document.getElementById("editHabitId");
+
+    if (editId) {
+        // Bearbeitungsmodus
+        const habit = habits.find(h => h.id === editId);
+        title.textContent = "Gewohnheit bearbeiten";
+        nameInput.value = habit.name;
+        freqInput.value = habit.perWeek;
+        idInput.value = habit.id;
+    } else {
+        // Neu-Modus
+        title.textContent = "Neue Gewohnheit";
+        nameInput.value = "";
+        freqInput.value = 7;
+        idInput.value = "";
+    }
+
+    modal.classList.remove("hidden");
+    nameInput.focus();
 }
 
 function closeModal() {
     document.getElementById("addModal").classList.add("hidden");
-    document.getElementById("habitName").value = "";
 }
 
 function saveNewHabit() {
     const name = document.getElementById("habitName").value.trim();
     const freq = document.getElementById("habitFreq").value;
+    const editId = document.getElementById("editHabitId").value;
 
     if (!name) return alert("Bitte einen Namen eingeben!");
 
-    const habit = {
-        id: Date.now(),
-        name: name,
-        perWeek: parseInt(freq)
-    };
+    if (editId) {
+        // Bestehende Gewohnheit updaten
+        const habit = habits.find(h => h.id == editId);
+        if (habit) {
+            habit.name = name;
+            habit.perWeek = parseInt(freq);
+        }
+    } else {
+        // Neue erstellen
+        const habit = {
+            id: Date.now(),
+            name: name,
+            perWeek: parseInt(freq)
+        };
+        habits.push(habit);
+    }
 
-    habits.push(habit);
     localStorage.setItem("habits", JSON.stringify(habits));
     closeModal();
     init();
