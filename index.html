@@ -18,7 +18,7 @@
         
         <div class="progress-container">
             <div class="progress-text">
-                <span id="dailyGoalText">0 / 0 erledigt</span>
+                <span id="dailyGoalText">0 / 0 Tägliche erledigt</span>
                 <span id="dailyGoalPercent" class="accent-text">0%</span>
             </div>
             <div class="progress-bar-bg">
@@ -44,9 +44,22 @@
         <div class="modal-content">
             <h2 id="modalTitle">Neue Gewohnheit</h2>
             <input type="hidden" id="editHabitId">
-            <input type="text" id="habitName" placeholder="Z.B. Lesen, Gym, Wasser trinken..." autocomplete="off">
-            <label>Wie oft pro Woche?</label>
-            <input type="number" id="habitFreq" value="7" min="1" max="7">
+            
+            <input type="text" id="habitName" placeholder="Z.B. Lesen, Gym, Miete..." autocomplete="off">
+            
+            <label>Wie oft?</label>
+            <select id="habitType" onchange="toggleTargetInput()">
+                <option value="daily">Täglich (Perfect Day)</option>
+                <option value="weekly">Wöchentlich</option>
+                <option value="monthly">Monatlich</option>
+                <option value="yearly">Jährlich</option>
+            </select>
+
+            <div id="targetWrapper" class="hidden" style="margin-top: 15px;">
+                <label>Wie oft in diesem Zeitraum?</label>
+                <input type="number" id="habitTarget" value="3" min="1" max="365">
+            </div>
+
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="closeModal()">Abbrechen</button>
                 <button class="btn-save" onclick="saveNewHabit()">Speichern</button>
