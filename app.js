@@ -9,7 +9,7 @@ if (!appStartDate) { appStartDate = new Date().toISOString().split("T")[0]; loca
 
 let currentTab = 'today';
 let currentStatFilter = 'week'; 
-let currentChartFilter = 'week'; // NEU: Speichert den Filter für das Diagramm!
+let currentChartFilter = 'week'; 
 let progressChart = null;
 let currentCalendarDate = new Date(); 
 let tempDayStatus = 'normal'; 
@@ -80,8 +80,47 @@ function switchTab(tab) {
 
 function renderView() { appContent.innerHTML = ""; if (currentTab === 'today') renderToday(); else if (currentTab === 'week') renderWeek(); else if (currentTab === 'progress') renderProgress(); }
 
+// ===== DER SMART COACH =====
+function generateCoachMessage() {
+    if (habits.length === 0) return { icon: "👋", text: "Willkommen! Füge deine erste Gewohnheit über das + hinzu." };
+    
+    if (dayStatusList[selectedDateStr] === 'sick') return { icon: "🤒", text: "Gute Besserung! Erhole dich gut, deine Streaks sind sicher." };
+    if (dayStatusList[selectedDateStr] === 'vacation') return { icon: "🏝️", text: "Genieße deinen Urlaub! Entspann dich." };
+
+    let d = new Date(selectedDateStr); d.setDate(d.getDate() - 1);
+    let yesterdayStr = d.toISOString().split("T")[0];
+    let yesterdayHistory = history[yesterdayStr] || {};
+    let doneYesterday = 0; habits.forEach(h => { if (yesterdayHistory[h.id]) doneYesterday++; });
+    
+    if (yesterdayStr >= appStartDate && doneYesterday === 0 && dayStatusList[yesterdayStr] !== 'sick' && dayStatusList[yesterdayStr] !== 'vacation') {
+        return { icon: "😤", text: "Gestern war ein Off-Tag 🤡. Heute greifen wir wieder richtig an!" };
+    }
+
+    const dailyHabits = habits.filter(h => h.type === 'daily');
+    let completedToday = 0;
+    dailyHabits.forEach(h => { if (history[selectedDateStr]?.[h.id]) completedToday++; });
+    if (dailyHabits.length > 0 && completedToday === dailyHabits.length) {
+        return { icon: "⭐", text: "Perfect Day! Du hast heute alle täglichen Routinen gerockt." };
+    }
+
+    let bestStreak = 0;
+    dailyHabits.forEach(h => { let s = calculateStreak(h.id); if (s > bestStreak) bestStreak = s; });
+    if (bestStreak >= 5) return { icon: "🔥", text: `Maschine! Du bist bei einer Gewohnheit auf einer ${bestStreak}-Tage Streak. Zieh durch!` };
+
+    return { icon: "🧠", text: "Jeder Tag zählt. Lass uns die Liste abhaken!" };
+}
+
 function renderToday() {
     if (habits.length === 0) { appContent.innerHTML = `<p style="text-align:center; color:#94a3b8; margin-top:20px;">Klicke auf das + um zu starten!</p>`; return; }
+    
+    const coachData = generateCoachMessage();
+    appContent.innerHTML += `
+        <div class="coach-banner">
+            <div class="coach-icon">${coachData.icon}</div>
+            <div class="coach-text">${coachData.text}</div>
+        </div>
+    `;
+
     const daily = habits.filter(h => h.type === 'daily'); const weekly = habits.filter(h => h.type === 'weekly'); const monthly = habits.filter(h => h.type === 'monthly'); const yearly = habits.filter(h => h.type === 'yearly');
     if(daily.length > 0) { appContent.innerHTML += `<div class="section-title">🎯 Tägliche Routinen</div>`; daily.forEach(h => appContent.appendChild(createHabitElement(h))); }
     if(weekly.length > 0) { appContent.innerHTML += `<div class="section-title">🗓️ Wöchentliche Ziele</div>`; weekly.forEach(h => appContent.appendChild(createHabitElement(h))); }
@@ -113,83 +152,46 @@ function renderWeek() {
     }); html += `</div>`; appContent.innerHTML = html;
 }
 
-// =======================================================
-// 🔥 DIAGRAMM BEREICH (Neu: Filter für das Liniendiagramm)
-// =======================================================
+// ===== PROGRESS & CHART =====
 function renderProgress() {
     if (progressChart) { progressChart.destroy(); progressChart = null; }
-    
-    // Die neuen 4 Buttons über dem Diagramm!
     let html = `
         <div class="section-title" style="margin-top:0;">📊 Gesamt-Trend</div>
-        <div class="stat-filters">
-            <button class="stat-filter-btn ${currentChartFilter === 'week' ? 'active' : ''}" onclick="setChartFilter('week', event)">Woche</button>
-            <button class="stat-filter-btn ${currentChartFilter === 'month' ? 'active' : ''}" onclick="setChartFilter('month', event)">Monat</button>
-            <button class="stat-filter-btn ${currentChartFilter === 'year' ? 'active' : ''}" onclick="setChartFilter('year', event)">Jahr</button>
-            <button class="stat-filter-btn ${currentChartFilter === 'all' ? 'active' : ''}" onclick="setChartFilter('all', event)">Alles</button>
-        </div>
+        <div class="stat-filters"><button class="stat-filter-btn ${currentChartFilter === 'week' ? 'active' : ''}" onclick="setChartFilter('week', event)">Woche</button><button class="stat-filter-btn ${currentChartFilter === 'month' ? 'active' : ''}" onclick="setChartFilter('month', event)">Monat</button><button class="stat-filter-btn ${currentChartFilter === 'year' ? 'active' : ''}" onclick="setChartFilter('year', event)">Jahr</button><button class="stat-filter-btn ${currentChartFilter === 'all' ? 'active' : ''}" onclick="setChartFilter('all', event)">Alles</button></div>
         <div class="chart-container"><canvas id="progressChart"></canvas></div>
-        
-        <div class="section-title">📅 Aktivitäts-Historie & Tagebuch</div>
-        <div id="calendarContainer" class="calendar-container"></div>
-        
+        <div class="section-title">📅 Aktivitäts-Historie & Tagebuch</div><div id="calendarContainer" class="calendar-container"></div>
         <div class="section-title">📈 Detaillierter Fortschritt</div>
-        <div class="stat-filters">
-            <button class="stat-filter-btn ${currentStatFilter === 'week' ? 'active' : ''}" onclick="setStatFilter('week', event)">Woche</button>
-            <button class="stat-filter-btn ${currentStatFilter === 'month' ? 'active' : ''}" onclick="setStatFilter('month', event)">Monat</button>
-            <button class="stat-filter-btn ${currentStatFilter === 'year' ? 'active' : ''}" onclick="setStatFilter('year', event)">Jahr</button>
-            <button class="stat-filter-btn ${currentStatFilter === 'all' ? 'active' : ''}" onclick="setStatFilter('all', event)">Alles</button>
-        </div>
+        <div class="stat-filters"><button class="stat-filter-btn ${currentStatFilter === 'week' ? 'active' : ''}" onclick="setStatFilter('week', event)">Woche</button><button class="stat-filter-btn ${currentStatFilter === 'month' ? 'active' : ''}" onclick="setStatFilter('month', event)">Monat</button><button class="stat-filter-btn ${currentStatFilter === 'year' ? 'active' : ''}" onclick="setStatFilter('year', event)">Jahr</button><button class="stat-filter-btn ${currentStatFilter === 'all' ? 'active' : ''}" onclick="setStatFilter('all', event)">Alles</button></div>
         <div id="indivStatsList"></div>
     `;
-    appContent.innerHTML = html; 
-    renderChart(); renderCalendarHeatmap(); renderIndivStats();
+    appContent.innerHTML = html; renderChart(); renderCalendarHeatmap(); renderIndivStats();
 }
 
 function setChartFilter(filter, event) {
-    currentChartFilter = filter;
-    const buttons = event.target.parentElement.querySelectorAll('.stat-filter-btn');
-    buttons.forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    renderChart();
+    currentChartFilter = filter; const buttons = event.target.parentElement.querySelectorAll('.stat-filter-btn'); buttons.forEach(btn => btn.classList.remove('active')); event.target.classList.add('active'); renderChart();
 }
 
 function renderChart() {
     let days = 7;
-    if (currentChartFilter === 'month') days = 30;
-    if (currentChartFilter === 'year') days = 365;
-    if (currentChartFilter === 'all') {
-        const diffTime = Math.abs(new Date() - new Date(appStartDate));
-        days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-        if (days < 7) days = 7; // Minimal 7 Tage anzeigen, sieht sonst kaputt aus
-    }
+    if (currentChartFilter === 'month') days = 30; if (currentChartFilter === 'year') days = 365;
+    if (currentChartFilter === 'all') { const diffTime = Math.abs(new Date() - new Date(appStartDate)); days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; if (days < 7) days = 7; }
 
-    const dates = getPastDates(days); 
-    const dailyHabits = habits.filter(h => h.type === 'daily');
-    
+    const dates = getPastDates(days); const dailyHabits = habits.filter(h => h.type === 'daily');
     const percentages = dates.map(date => {
-        // 🔥 SECRET FEATURE: Wenn Krank/Urlaub, gib "null" zurück! 
-        // Das verbindet die Linie unsichtbar, statt sie auf 0% abstürzen zu lassen!
         if (dayStatusList[date] === 'sick' || dayStatusList[date] === 'vacation') return null; 
-        
         const dayHist = history[date] || {}; if (dailyHabits.length === 0) return 0;
-        let done = 0; dailyHabits.forEach(h => { if (dayHist[h.id]) done++; }); 
-        return Math.round((done / dailyHabits.length) * 100);
+        let done = 0; dailyHabits.forEach(h => { if (dayHist[h.id]) done++; }); return Math.round((done / dailyHabits.length) * 100);
     });
 
-    const displayDates = dates.map(d => {
-        const dateObj = new Date(d);
-        if (days <= 7) return dateObj.toLocaleDateString('de-DE', {weekday: 'short'});
-        if (days <= 30) return dateObj.toLocaleDateString('de-DE', {day: '2-digit', month: 'short'});
-        return dateObj.toLocaleDateString('de-DE', {day: '2-digit', month: 'short', year: '2-digit'}); 
-    });
+    const displayDates = dates.map(d => { const dateObj = new Date(d); if (days <= 7) return dateObj.toLocaleDateString('de-DE', {weekday: 'short'}); if (days <= 30) return dateObj.toLocaleDateString('de-DE', {day: '2-digit', month: 'short'}); return dateObj.toLocaleDateString('de-DE', {day: '2-digit', month: 'short', year: '2-digit'}); });
 
     const ctx = document.getElementById('progressChart').getContext('2d');
     if (progressChart) { progressChart.destroy(); }
     
-    // Auto-Scaling für die kleinen Punkte (Bei > 30 Tagen verschwinden die Punkte für Übersicht)
-    let pRadius = days > 30 ? 0 : 4;
+    // 🔥 NEU: Wenn mehr als 30 Tage, wird die Linie ultradünn (1 Pixel) und die Punkte verschwinden komplett
+    let pRadius = days > 30 ? 0 : 4; 
     let pBorder = days > 30 ? 0 : 2;
+    let lineThickness = days > 30 ? 1 : 3;
 
     progressChart = new Chart(ctx, { 
         type: 'line', 
@@ -200,23 +202,23 @@ function renderChart() {
                 data: percentages, 
                 borderColor: '#0ea5e9', 
                 backgroundColor: 'rgba(14, 165, 233, 0.2)', 
-                borderWidth: days > 30 ? 2 : 3, 
+                borderWidth: lineThickness, 
                 fill: true, 
                 tension: 0.4, 
-                spanGaps: true, // Das überbrückt die kranken Tage, ohne dass die Linie abbricht!
+                spanGaps: true, 
                 pointBackgroundColor: '#0f172a', 
                 pointBorderColor: '#0ea5e9', 
                 pointBorderWidth: pBorder, 
-                pointRadius: pRadius,
-                pointHoverRadius: 6
+                pointRadius: pRadius, 
+                pointHoverRadius: 6 
             }] 
         }, 
         options: { 
             responsive: true, 
-            maintainAspectRatio: false, // Wichtig für die fixe Box-Größe!
+            maintainAspectRatio: false, 
             scales: { 
                 y: { beginAtZero: true, max: 100, ticks: { color: '#94a3b8' } }, 
-                x: { ticks: { color: '#94a3b8', maxTicksLimit: 7 } } // Chart blockiert zu viele Labels
+                x: { ticks: { color: '#94a3b8', maxTicksLimit: 7 } } 
             }, 
             plugins: { legend: { display: false } } 
         } 
@@ -235,15 +237,12 @@ function renderCalendarHeatmap() {
     let gridHtml = '';
     for(let i = 0; i < startDayOfWeek; i++) { gridHtml += `<div class="heatmap-box empty"></div>`; }
 
-    const dailyHabits = habits.filter(h => h.type === 'daily');
-    const flexHabits = habits.filter(h => h.type !== 'daily');
+    const dailyHabits = habits.filter(h => h.type === 'daily'); const flexHabits = habits.filter(h => h.type !== 'daily');
 
     for(let i = 1; i <= daysInMonth; i++) {
         const dateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
         const dayHist = history[dateStr] || {};
-        
-        let totalDoneToday = 0;
-        habits.forEach(h => { if (dayHist[h.id]) totalDoneToday++; });
+        let totalDoneToday = 0; habits.forEach(h => { if (dayHist[h.id]) totalDoneToday++; });
 
         let innerText = i; let boxClasses = ""; let crownHtml = "";
         let dotsHtml = notes[dateStr] ? `<div class="note-dots">...</div>` : '';
@@ -253,10 +252,8 @@ function renderCalendarHeatmap() {
         else {
             if (dateStr < getToday() && dateStr >= appStartDate && totalDoneToday === 0 && habits.length > 0) {
                 innerText = "🤡"; boxClasses = "lvl-0";
-            } 
-            else {
-                let dailyDone = 0;
-                dailyHabits.forEach(h => { if (dayHist[h.id]) dailyDone++; });
+            } else {
+                let dailyDone = 0; dailyHabits.forEach(h => { if (dayHist[h.id]) dailyDone++; });
                 let percent = dailyHabits.length === 0 ? 0 : (dailyDone / dailyHabits.length) * 100;
                 let lvl = 0; 
                 if (percent >= 100 && dailyHabits.length > 0) lvl = 4;
@@ -266,10 +263,7 @@ function renderCalendarHeatmap() {
 
                 let getsCrown = false; let getsDogEar = false;
                 flexHabits.forEach(h => {
-                    if (dayHist[h.id]) {
-                        let count = getCountForPeriodUpToDate(h, dateStr);
-                        if (count >= h.target) getsCrown = true; else getsDogEar = true;
-                    }
+                    if (dayHist[h.id]) { let count = getCountForPeriodUpToDate(h, dateStr); if (count >= h.target) getsCrown = true; else getsDogEar = true; }
                 });
                 if (getsCrown) crownHtml = `<div class="crown-icon">👑</div>`;
                 if (getsDogEar && !getsCrown) boxClasses += " dog-ear"; 
@@ -280,41 +274,29 @@ function renderCalendarHeatmap() {
     container.innerHTML = `<div class="calendar-header"><button class="icon-btn" onclick="changeCalendarMonth(-1)"><i class="fas fa-chevron-left"></i></button><h3>${monthNames[month]} ${year}</h3><button class="icon-btn" onclick="changeCalendarMonth(1)"><i class="fas fa-chevron-right"></i></button></div><div class="calendar-weekdays"><span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span></div><div class="heatmap-grid">${gridHtml}</div>`;
 }
 
-// ===== TAGEBUCH & STATUS LOGIK =====
+// ===== MODALS & SETTINGS =====
 function openDiaryModal(dateStr) {
-    const modal = document.getElementById("diaryModal");
-    document.getElementById("diaryDateTitle").textContent = formatDate(dateStr);
-    document.getElementById("diaryDateHidden").value = dateStr;
-    document.getElementById("diaryNoteInput").value = notes[dateStr] || "";
-
+    const modal = document.getElementById("diaryModal"); document.getElementById("diaryDateTitle").textContent = formatDate(dateStr); document.getElementById("diaryDateHidden").value = dateStr; document.getElementById("diaryNoteInput").value = notes[dateStr] || "";
     tempDayStatus = dayStatusList[dateStr] || 'normal'; updateStatusUI();
-
-    const dayHist = history[dateStr] || {};
-    let completedNames = []; habits.forEach(h => { if (dayHist[h.id]) completedNames.push(h.name); });
+    const dayHist = history[dateStr] || {}; let completedNames = []; habits.forEach(h => { if (dayHist[h.id]) completedNames.push(h.name); });
     const listEl = document.getElementById("diaryCompletedList");
-    if (completedNames.length > 0) listEl.innerHTML = `<strong>Erledigt:</strong> ${completedNames.join(', ')} ✅`;
-    else listEl.innerHTML = `<em>Nichts erledigt an diesem Tag.</em>`;
+    if (completedNames.length > 0) listEl.innerHTML = `<strong>Erledigt:</strong> ${completedNames.join(', ')} ✅`; else listEl.innerHTML = `<em>Nichts erledigt an diesem Tag.</em>`;
     modal.classList.remove("hidden");
 }
 
 function updateStatusUI() {
     document.getElementById("btnStatusNormal").classList.remove("active"); document.getElementById("btnStatusSick").classList.remove("active"); document.getElementById("btnStatusVacation").classList.remove("active");
-    if (tempDayStatus === 'sick') document.getElementById("btnStatusSick").classList.add("active");
-    else if (tempDayStatus === 'vacation') document.getElementById("btnStatusVacation").classList.add("active");
-    else document.getElementById("btnStatusNormal").classList.add("active");
+    if (tempDayStatus === 'sick') document.getElementById("btnStatusSick").classList.add("active"); else if (tempDayStatus === 'vacation') document.getElementById("btnStatusVacation").classList.add("active"); else document.getElementById("btnStatusNormal").classList.add("active");
 }
 
 function closeDiaryModal() { document.getElementById("diaryModal").classList.add("hidden"); }
 
 function saveDiaryNote() {
-    const dateStr = document.getElementById("diaryDateHidden").value;
-    const noteText = document.getElementById("diaryNoteInput").value.trim();
-
+    const dateStr = document.getElementById("diaryDateHidden").value; const noteText = document.getElementById("diaryNoteInput").value.trim();
     if (noteText) notes[dateStr] = noteText; else delete notes[dateStr];
     if (tempDayStatus !== 'normal') dayStatusList[dateStr] = tempDayStatus; else delete dayStatusList[dateStr];
-
     localStorage.setItem("notes", JSON.stringify(notes)); localStorage.setItem("dayStatusList", JSON.stringify(dayStatusList));
-    closeDiaryModal(); renderCalendarHeatmap(); renderToday(); renderChart();
+    closeDiaryModal(); renderCalendarHeatmap(); renderToday(); if(progressChart) renderChart();
 }
 
 function setStatFilter(filter, event) { currentStatFilter = filter; document.querySelectorAll('.stat-filter-btn').forEach(btn => btn.classList.remove('active')); event.target.classList.add('active'); renderIndivStats(); }
@@ -365,6 +347,37 @@ function saveNewHabit() {
     if (editId) { const habit = habits.find(h => h.id == editId); if (habit) { habit.name = name; habit.type = type; habit.target = target; } } 
     else { habits.push({ id: Date.now(), name: name, type: type, target: target }); }
     localStorage.setItem("habits", JSON.stringify(habits)); closeModal(); init();
+}
+
+// ===== EXPORT & IMPORT =====
+function openSettingsModal() { document.getElementById("settingsModal").classList.remove("hidden"); }
+function closeSettingsModal() { document.getElementById("settingsModal").classList.add("hidden"); }
+
+function exportData() {
+    const dataObj = { habits, history, notes, dayStatusList, appStartDate };
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataObj));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", "habit-tracker-backup.json");
+    document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove();
+}
+
+function importData(event) {
+    const file = event.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const importedData = JSON.parse(e.target.result);
+            if(importedData.habits && importedData.history) {
+                localStorage.setItem("habits", JSON.stringify(importedData.habits));
+                localStorage.setItem("history", JSON.stringify(importedData.history));
+                if(importedData.notes) localStorage.setItem("notes", JSON.stringify(importedData.notes));
+                if(importedData.dayStatusList) localStorage.setItem("dayStatusList", JSON.stringify(importedData.dayStatusList));
+                if(importedData.appStartDate) localStorage.setItem("appStartDate", importedData.appStartDate);
+                alert("Backup erfolgreich geladen! 🎉"); location.reload();
+            } else { alert("Fehler: Ungültige Backup-Datei."); }
+        } catch(error) { alert("Fehler beim Lesen der Datei."); }
+    };
+    reader.readAsText(file);
 }
 
 init();
