@@ -18,7 +18,7 @@
         
         <div class="progress-container">
             <div class="progress-text">
-                <span id="dailyGoalText">0 / 0 Tägliche erledigt</span>
+                <span id="dailyGoalText">0 / 0 erledigt</span>
                 <span id="dailyGoalPercent" class="accent-text">0%</span>
             </div>
             <div class="progress-bar-bg">
@@ -63,6 +63,21 @@
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="closeModal()">Abbrechen</button>
                 <button class="btn-save" onclick="saveNewHabit()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="diaryModal" class="modal hidden">
+        <div class="modal-content">
+            <h2 id="diaryDateTitle">Datum</h2>
+            <div id="diaryCompletedList" style="margin-bottom: 15px; font-size: 14px; color: var(--accent);">
+                </div>
+            <label>Deine Notiz für diesen Tag:</label>
+            <textarea id="diaryNoteInput" rows="4" placeholder="Wie lief dein Tag? Fühle dich frei, Gedanken zu notieren..."></textarea>
+            <input type="hidden" id="diaryDateHidden">
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeDiaryModal()">Schließen</button>
+                <button class="btn-save" onclick="saveDiaryNote()">Speichern</button>
             </div>
         </div>
     </div>
