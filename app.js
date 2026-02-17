@@ -61,7 +61,7 @@ function checkThemeUnlock() {
     let bestStreak = 0;
     habits.forEach(h => { let s = calculateStreak(h.id, getToday()); if (s > bestStreak) bestStreak = s; });
     
-    if (bestStreak >= 1) {
+    if (bestStreak >= 100) {
         document.getElementById("eliteThemeOption").disabled = false;
         document.getElementById("eliteThemeOption").textContent = "👑 Elite Black & Gold";
     }
