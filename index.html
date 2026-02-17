@@ -18,9 +18,13 @@
                 <button class="icon-btn" onclick="changeMainDate(1)" id="btnNextDay"><i class="fas fa-chevron-right"></i></button>
             </div>
             
-            <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 15px;">
                 <div id="perfectDayBadge" class="hidden">⭐ PERFECT DAY</div>
-                <button class="icon-btn" onclick="openSettingsModal()" style="color: var(--text-muted);"><i class="fas fa-cog"></i></button>
+                <div class="bell-container" onclick="openMonthlyReview(false)">
+                    <i class="fas fa-bell icon-btn" style="padding: 0;"></i>
+                    <div id="notificationDot" class="notification-dot hidden"></div>
+                </div>
+                <button class="icon-btn" onclick="openSettingsModal()"><i class="fas fa-cog"></i></button>
             </div>
         </div>
         
@@ -92,9 +96,16 @@
     <div id="settingsModal" class="modal hidden">
         <div class="modal-content">
             <h2>⚙️ Einstellungen</h2>
-            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Deine Daten werden sicher und nur lokal auf diesem Gerät gespeichert.</p>
             
-            <div class="modal-actions" style="flex-direction: column; gap: 10px;">
+            <label style="margin-top: 10px; display: block;">App-Design (Theme):</label>
+            <select id="themeSelect" onchange="changeTheme(this.value)" style="margin-bottom: 20px;">
+                <option value="dark">Midnight Blue (Standard)</option>
+                <option value="light">Clean Light (Weiß)</option>
+                <option value="elite" id="eliteThemeOption" disabled>🔒 Elite Black & Gold (1 🔥 Streak benötigt)</option>
+            </select>
+
+            <label style="display: block;">Daten-Sicherheit:</label>
+            <div class="modal-actions" style="flex-direction: column; gap: 10px; margin-bottom: 25px;">
                 <button class="btn-save" style="width: 100%;" onclick="exportData()"><i class="fas fa-download"></i> Backup speichern</button>
                 <button class="btn-cancel" style="width: 100%; position: relative;" onclick="document.getElementById('importFile').click()">
                     <i class="fas fa-upload"></i> Backup laden
@@ -102,8 +113,26 @@
                 <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
             </div>
             
+            <label style="display: block;">Developer-Tools:</label>
+            <button class="btn-cancel" style="width: 100%; border: 1px solid var(--accent); color: var(--accent);" onclick="openMonthlyReview(true)">👀 Monats-Rückblick testen</button>
+
             <div class="modal-actions" style="margin-top: 20px;">
                 <button class="btn-cancel" onclick="closeSettingsModal()" style="width: 100%;">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="reviewModal" class="modal hidden">
+        <div class="modal-content" style="text-align: center; background: linear-gradient(135deg, var(--card-bg), var(--bg-color)); border: 1px solid var(--accent);">
+            <h1 style="font-size: 28px; margin-bottom: 5px; color: var(--accent);">✨ Dein Rückblick</h1>
+            <h2 id="reviewMonthTitle" style="color: var(--text-muted); margin-bottom: 25px;">Februar 2026</h2>
+            
+            <div style="font-size: 40px; margin-bottom: 10px;">🏆</div>
+            <div id="reviewStats" style="text-align: left; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; margin-bottom: 25px; line-height: 1.8;">
+                </div>
+
+            <div class="modal-actions">
+                <button class="btn-save" style="width: 100%; font-size: 18px; padding: 15px;" onclick="closeMonthlyReview()">Neuen Monat dominieren 🚀</button>
             </div>
         </div>
     </div>
