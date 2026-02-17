@@ -4,7 +4,6 @@ let history = JSON.parse(localStorage.getItem("history")) || {};
 let notes = JSON.parse(localStorage.getItem("notes")) || {}; 
 let dayStatusList = JSON.parse(localStorage.getItem("dayStatusList")) || {}; 
 
-// NEU: App Einstellungen speichern
 let appStartDate = localStorage.getItem("appStartDate");
 if (!appStartDate) { appStartDate = new Date().toISOString().split("T")[0]; localStorage.setItem("appStartDate", appStartDate); }
 
@@ -53,17 +52,15 @@ function applyTheme(themeName) {
     savedTheme = themeName;
     localStorage.setItem("appTheme", themeName);
     document.getElementById("themeSelect").value = themeName;
-    if (progressChart) renderChart(); // Diagramm Farben anpassen
+    if (progressChart) renderChart(); 
 }
 
 function changeTheme(newTheme) { applyTheme(newTheme); }
 
 function checkThemeUnlock() {
-    // Phase 4: Zum Testen schalten wir Elite schon ab einer 1-Tage Streak frei!
     let bestStreak = 0;
     habits.forEach(h => { let s = calculateStreak(h.id, getToday()); if (s > bestStreak) bestStreak = s; });
     
-    const eliteOption = document.getElementById("eliteOption");
     if (bestStreak >= 1) {
         document.getElementById("eliteThemeOption").disabled = false;
         document.getElementById("eliteThemeOption").textContent = "👑 Elite Black & Gold";
@@ -75,7 +72,6 @@ function checkNotificationBell() {
     let todayObj = new Date(getToday());
     let currentMonthStr = `${todayObj.getFullYear()}-${todayObj.getMonth()}`;
     
-    // Wenn heute der 1. ist UND wir diesen Monat noch nicht angesehen haben -> Leuchten!
     if (todayObj.getDate() === 1 && lastReviewedMonth !== currentMonthStr) {
         notificationDot.classList.remove("hidden");
     } else {
@@ -86,10 +82,9 @@ function checkNotificationBell() {
 function openMonthlyReview(isTest = false) {
     let todayObj = new Date(getToday());
     let reviewYear = todayObj.getFullYear();
-    let reviewMonth = todayObj.getMonth() - 1; // Wir schauen uns den LETZTEN Monat an
+    let reviewMonth = todayObj.getMonth() - 1; 
 
     if (isTest) {
-        // Im Test-Modus schauen wir uns den AKTUELLEN Monat an, damit wir jetzt schon was sehen!
         reviewMonth = todayObj.getMonth();
     } else if (reviewMonth < 0) {
         reviewMonth = 11; reviewYear--;
@@ -98,7 +93,6 @@ function openMonthlyReview(isTest = false) {
     const monthNames = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
     document.getElementById("reviewMonthTitle").textContent = `${monthNames[reviewMonth]} ${reviewYear}`;
 
-    // Stats berechnen für diesen Monat
     const firstDay = new Date(reviewYear, reviewMonth, 1);
     const lastDay = new Date(reviewYear, reviewMonth + 1, 0);
     const daysInMonth = lastDay.getDate();
@@ -109,7 +103,7 @@ function openMonthlyReview(isTest = false) {
 
     for(let i = 1; i <= daysInMonth; i++) {
         let dateStr = `${reviewYear}-${String(reviewMonth+1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-        if (dateStr > getToday()) continue; // Zukunft ignorieren
+        if (dateStr > getToday()) continue; 
 
         let dStatus = dayStatusList[dateStr];
         if (dStatus === 'sick' || dStatus === 'vacation') { sickVacationDays++; continue; }
@@ -125,7 +119,7 @@ function openMonthlyReview(isTest = false) {
         flexHabits.forEach(h => {
             if (dayHist[h.id]) {
                 let count = getCountForPeriodUpToDate(h, dateStr);
-                if (count === h.target) flexGoalsMet++; // Kronen gezählt
+                if (count === h.target) flexGoalsMet++; 
             }
         });
     }
@@ -142,7 +136,6 @@ function openMonthlyReview(isTest = false) {
 
     document.getElementById("reviewStats").innerHTML = statsHtml;
     
-    // Glocke zurücksetzen, wenn es kein Test war
     if (!isTest) {
         let currentMonthStr = `${todayObj.getFullYear()}-${todayObj.getMonth()}`;
         localStorage.setItem("lastReviewedMonth", currentMonthStr);
@@ -159,7 +152,7 @@ function closeMonthlyReview() { document.getElementById("reviewModal").classList
 // ===== DEEP INSIGHTS LOGIK =====
 function getBestWeekday() {
     if (habits.length === 0) return "-";
-    let counts = [0,0,0,0,0,0,0]; // So, Mo, Di...
+    let counts = [0,0,0,0,0,0,0]; 
     let daysName = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
     
     Object.keys(history).forEach(dateStr => {
@@ -203,7 +196,7 @@ function toggleHabit(habitId) {
     if (!history[selectedDateStr]) history[selectedDateStr] = {};
     history[selectedDateStr][habitId] = !history[selectedDateStr][habitId];
     localStorage.setItem("history", JSON.stringify(history));
-    checkThemeUnlock(); // Prüft direkt nach Klick ob Elite freigeschaltet wird!
+    checkThemeUnlock(); 
     updateHeader(); renderView();
 }
 
@@ -293,14 +286,18 @@ function renderWeek() {
 function renderProgress() {
     if (progressChart) { progressChart.destroy(); progressChart = null; }
     
-    // 🔥 NEU: Die KI Analyse (Insights) dauerhaft im Fortschritt-Tab!
     let primeDay = getBestWeekday();
+    
+    // 🔥 DEIN NEUER MVP SATZ
+    let insightText = primeDay === "-" 
+        ? "Noch nicht genug Daten. Zieh weiter durch, dann berechnet die KI deinen besten Tag! 🦾" 
+        : `Statistik lügt nicht: <strong>${primeDay}</strong> ist dein MVP-Tag! 🏆 An diesem Tag gibt es für dich null Ausreden. 🚫🔥`;
     
     let html = `
         <div class="section-title" style="margin-top:0;">🧠 Deep Insights</div>
         <div class="coach-banner" style="margin-bottom: 20px;">
-            <div class="coach-icon">📊</div>
-            <div class="coach-text">Dein stärkster Wochentag ist aktuell der <strong>${primeDay}</strong>. Da lieferst du richtig ab!</div>
+            <div class="coach-icon">📈</div>
+            <div class="coach-text">${insightText}</div>
         </div>
 
         <div class="section-title">📊 Gesamt-Trend</div>
@@ -353,7 +350,6 @@ function renderChart() {
     const ctx = document.getElementById('progressChart').getContext('2d');
     if (progressChart) { progressChart.destroy(); }
     
-    // Holt sich dynamisch die Farbe vom gewählten Theme für das Diagramm!
     let accentColor = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#0ea5e9';
     let pRadius = isLongTerm ? 0 : 4; let pBorder = isLongTerm ? 0 : 2;
 
@@ -394,8 +390,12 @@ function renderCalendarHeatmap() {
                 let dailyDone = 0; dailyHabits.forEach(h => { if (dayHist[h.id]) dailyDone++; });
                 let percent = dailyHabits.length === 0 ? 0 : (dailyDone / dailyHabits.length) * 100;
                 let lvl = 0; 
+                
+                // 🔥 NEUE MATHEMATIK: Blech, Bronze, Silber, Gold
                 if (percent >= 100 && dailyHabits.length > 0) lvl = 4;
-                else if (percent >= 75) lvl = 3; else if (percent >= 40) lvl = 2; else if (percent > 0) lvl = 1;
+                else if (percent > 66) lvl = 3; 
+                else if (percent > 33) lvl = 2; 
+                else if (percent > 0) lvl = 1;
 
                 boxClasses = `lvl-${lvl}`;
 
