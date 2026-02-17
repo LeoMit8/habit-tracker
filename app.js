@@ -4,12 +4,16 @@ let history = JSON.parse(localStorage.getItem("history")) || {};
 let notes = JSON.parse(localStorage.getItem("notes")) || {}; 
 let dayStatusList = JSON.parse(localStorage.getItem("dayStatusList")) || {}; 
 
+// NEU: App Einstellungen speichern
 let appStartDate = localStorage.getItem("appStartDate");
 if (!appStartDate) { appStartDate = new Date().toISOString().split("T")[0]; localStorage.setItem("appStartDate", appStartDate); }
 
+let savedTheme = localStorage.getItem("appTheme") || "dark";
+let lastReviewedMonth = localStorage.getItem("lastReviewedMonth") || "";
+
 let currentTab = 'today';
-let currentStatFilter = 'week'; 
 let currentChartFilter = 'week'; 
+let currentStatFilter = 'week'; 
 let progressChart = null;
 let currentCalendarDate = new Date(); 
 let tempDayStatus = 'normal'; 
@@ -22,7 +26,9 @@ const dailyGoalText = document.getElementById("dailyGoalText");
 const dailyGoalPercent = document.getElementById("dailyGoalPercent");
 const perfectDayBadge = document.getElementById("perfectDayBadge");
 const btnNextDay = document.getElementById("btnNextDay");
+const notificationDot = document.getElementById("notificationDot");
 
+// ===== HILFSFUNKTIONEN =====
 function getToday() { return new Date().toISOString().split("T")[0]; }
 function formatDate(dateString) { return new Date(dateString).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: 'short' }); }
 function getPastDates(days) { const dates = []; for (let i = days - 1; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); dates.push(d.toISOString().split("T")[0]); } return dates; }
@@ -31,8 +37,147 @@ function getStartOfMonth(dateStr) { const d = new Date(dateStr); d.setDate(1); r
 function getStartOfYear(dateStr) { const d = new Date(dateStr); d.setMonth(0, 1); return d.toISOString().split("T")[0]; }
 function toggleText(element, event) { if(event) event.stopPropagation(); element.classList.toggle('expanded'); }
 
-function init() { updateHeader(); renderView(); }
+// ===== INIT & THEMING =====
+function init() { 
+    applyTheme(savedTheme);
+    checkThemeUnlock();
+    checkNotificationBell();
+    updateHeader(); 
+    renderView(); 
+}
 
+function applyTheme(themeName) {
+    document.body.classList.remove("light-mode", "elite-mode");
+    if (themeName === "light") document.body.classList.add("light-mode");
+    if (themeName === "elite") document.body.classList.add("elite-mode");
+    savedTheme = themeName;
+    localStorage.setItem("appTheme", themeName);
+    document.getElementById("themeSelect").value = themeName;
+    if (progressChart) renderChart(); // Diagramm Farben anpassen
+}
+
+function changeTheme(newTheme) { applyTheme(newTheme); }
+
+function checkThemeUnlock() {
+    // Phase 4: Zum Testen schalten wir Elite schon ab einer 1-Tage Streak frei!
+    let bestStreak = 0;
+    habits.forEach(h => { let s = calculateStreak(h.id, getToday()); if (s > bestStreak) bestStreak = s; });
+    
+    const eliteOption = document.getElementById("eliteOption");
+    if (bestStreak >= 1) {
+        document.getElementById("eliteThemeOption").disabled = false;
+        document.getElementById("eliteThemeOption").textContent = "👑 Elite Black & Gold";
+    }
+}
+
+// ===== GLOCKE & MONATS-RÜCKBLICK =====
+function checkNotificationBell() {
+    let todayObj = new Date(getToday());
+    let currentMonthStr = `${todayObj.getFullYear()}-${todayObj.getMonth()}`;
+    
+    // Wenn heute der 1. ist UND wir diesen Monat noch nicht angesehen haben -> Leuchten!
+    if (todayObj.getDate() === 1 && lastReviewedMonth !== currentMonthStr) {
+        notificationDot.classList.remove("hidden");
+    } else {
+        notificationDot.classList.add("hidden");
+    }
+}
+
+function openMonthlyReview(isTest = false) {
+    let todayObj = new Date(getToday());
+    let reviewYear = todayObj.getFullYear();
+    let reviewMonth = todayObj.getMonth() - 1; // Wir schauen uns den LETZTEN Monat an
+
+    if (isTest) {
+        // Im Test-Modus schauen wir uns den AKTUELLEN Monat an, damit wir jetzt schon was sehen!
+        reviewMonth = todayObj.getMonth();
+    } else if (reviewMonth < 0) {
+        reviewMonth = 11; reviewYear--;
+    }
+
+    const monthNames = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+    document.getElementById("reviewMonthTitle").textContent = `${monthNames[reviewMonth]} ${reviewYear}`;
+
+    // Stats berechnen für diesen Monat
+    const firstDay = new Date(reviewYear, reviewMonth, 1);
+    const lastDay = new Date(reviewYear, reviewMonth + 1, 0);
+    const daysInMonth = lastDay.getDate();
+
+    let perfectDays = 0; let flexGoalsMet = 0; let sickVacationDays = 0; let clownDays = 0;
+    const dailyHabits = habits.filter(h => h.type === 'daily');
+    const flexHabits = habits.filter(h => h.type !== 'daily');
+
+    for(let i = 1; i <= daysInMonth; i++) {
+        let dateStr = `${reviewYear}-${String(reviewMonth+1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+        if (dateStr > getToday()) continue; // Zukunft ignorieren
+
+        let dStatus = dayStatusList[dateStr];
+        if (dStatus === 'sick' || dStatus === 'vacation') { sickVacationDays++; continue; }
+
+        let dayHist = history[dateStr] || {};
+        
+        let dailyDone = 0; dailyHabits.forEach(h => { if(dayHist[h.id]) dailyDone++; });
+        if (dailyHabits.length > 0 && dailyDone === dailyHabits.length) perfectDays++;
+
+        let totalDone = 0; habits.forEach(h => { if(dayHist[h.id]) totalDone++; });
+        if (dateStr >= appStartDate && totalDone === 0 && habits.length > 0) clownDays++;
+
+        flexHabits.forEach(h => {
+            if (dayHist[h.id]) {
+                let count = getCountForPeriodUpToDate(h, dateStr);
+                if (count === h.target) flexGoalsMet++; // Kronen gezählt
+            }
+        });
+    }
+
+    let primeDay = getBestWeekday();
+
+    let statsHtml = `
+        <div style="margin-bottom: 8px;">⭐ <strong>Perfect Days:</strong> ${perfectDays}</div>
+        <div style="margin-bottom: 8px;">👑 <strong>Ziele geknackt:</strong> ${flexGoalsMet}</div>
+        <div style="margin-bottom: 8px;">📊 <strong>Bester Wochentag:</strong> ${primeDay}</div>
+        <div style="margin-bottom: 8px;">🏝️/🤒 <strong>Pausiert:</strong> ${sickVacationDays} Tage</div>
+        <div style="margin-bottom: 8px;">🤡 <strong>Off-Tage:</strong> ${clownDays}</div>
+    `;
+
+    document.getElementById("reviewStats").innerHTML = statsHtml;
+    
+    // Glocke zurücksetzen, wenn es kein Test war
+    if (!isTest) {
+        let currentMonthStr = `${todayObj.getFullYear()}-${todayObj.getMonth()}`;
+        localStorage.setItem("lastReviewedMonth", currentMonthStr);
+        lastReviewedMonth = currentMonthStr;
+        checkNotificationBell();
+    }
+
+    document.getElementById("settingsModal").classList.add("hidden");
+    document.getElementById("reviewModal").classList.remove("hidden");
+}
+
+function closeMonthlyReview() { document.getElementById("reviewModal").classList.add("hidden"); }
+
+// ===== DEEP INSIGHTS LOGIK =====
+function getBestWeekday() {
+    if (habits.length === 0) return "-";
+    let counts = [0,0,0,0,0,0,0]; // So, Mo, Di...
+    let daysName = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+    
+    Object.keys(history).forEach(dateStr => {
+        if(dayStatusList[dateStr] === 'sick' || dayStatusList[dateStr] === 'vacation') return;
+        let dayHist = history[dateStr];
+        let done = 0; habits.forEach(h => { if(dayHist[h.id]) done++; });
+        if (done > 0) {
+            let wDay = new Date(dateStr).getDay();
+            counts[wDay] += done;
+        }
+    });
+
+    let maxCount = 0; let bestDayIndex = -1;
+    for(let i=0; i<7; i++) { if(counts[i] > maxCount) { maxCount = counts[i]; bestDayIndex = i; } }
+    return bestDayIndex === -1 ? "-" : daysName[bestDayIndex];
+}
+
+// ===== NAVIGATION =====
 function changeMainDate(offset) {
     let d = new Date(selectedDateStr); d.setDate(d.getDate() + offset);
     selectedDateStr = d.toISOString().split("T")[0];
@@ -58,6 +203,7 @@ function toggleHabit(habitId) {
     if (!history[selectedDateStr]) history[selectedDateStr] = {};
     history[selectedDateStr][habitId] = !history[selectedDateStr][habitId];
     localStorage.setItem("history", JSON.stringify(history));
+    checkThemeUnlock(); // Prüft direkt nach Klick ob Elite freigeschaltet wird!
     updateHeader(); renderView();
 }
 
@@ -80,10 +226,8 @@ function switchTab(tab) {
 
 function renderView() { appContent.innerHTML = ""; if (currentTab === 'today') renderToday(); else if (currentTab === 'week') renderWeek(); else if (currentTab === 'progress') renderProgress(); }
 
-// ===== DER SMART COACH =====
 function generateCoachMessage() {
     if (habits.length === 0) return { icon: "👋", text: "Willkommen! Füge deine erste Gewohnheit über das + hinzu." };
-    
     if (dayStatusList[selectedDateStr] === 'sick') return { icon: "🤒", text: "Gute Besserung! Erhole dich gut, deine Streaks sind sicher." };
     if (dayStatusList[selectedDateStr] === 'vacation') return { icon: "🏝️", text: "Genieße deinen Urlaub! Entspann dich." };
 
@@ -99,12 +243,10 @@ function generateCoachMessage() {
     const dailyHabits = habits.filter(h => h.type === 'daily');
     let completedToday = 0;
     dailyHabits.forEach(h => { if (history[selectedDateStr]?.[h.id]) completedToday++; });
-    if (dailyHabits.length > 0 && completedToday === dailyHabits.length) {
-        return { icon: "⭐", text: "Perfect Day! Du hast heute alle täglichen Routinen gerockt." };
-    }
+    if (dailyHabits.length > 0 && completedToday === dailyHabits.length) return { icon: "⭐", text: "Perfect Day! Du hast heute alle täglichen Routinen gerockt." };
 
     let bestStreak = 0;
-    dailyHabits.forEach(h => { let s = calculateStreak(h.id); if (s > bestStreak) bestStreak = s; });
+    dailyHabits.forEach(h => { let s = calculateStreak(h.id, selectedDateStr); if (s > bestStreak) bestStreak = s; });
     if (bestStreak >= 5) return { icon: "🔥", text: `Maschine! Du bist bei einer Gewohnheit auf einer ${bestStreak}-Tage Streak. Zieh durch!` };
 
     return { icon: "🧠", text: "Jeder Tag zählt. Lass uns die Liste abhaken!" };
@@ -114,12 +256,7 @@ function renderToday() {
     if (habits.length === 0) { appContent.innerHTML = `<p style="text-align:center; color:#94a3b8; margin-top:20px;">Klicke auf das + um zu starten!</p>`; return; }
     
     const coachData = generateCoachMessage();
-    appContent.innerHTML += `
-        <div class="coach-banner">
-            <div class="coach-icon">${coachData.icon}</div>
-            <div class="coach-text">${coachData.text}</div>
-        </div>
-    `;
+    appContent.innerHTML += `<div class="coach-banner"><div class="coach-icon">${coachData.icon}</div><div class="coach-text">${coachData.text}</div></div>`;
 
     const daily = habits.filter(h => h.type === 'daily'); const weekly = habits.filter(h => h.type === 'weekly'); const monthly = habits.filter(h => h.type === 'monthly'); const yearly = habits.filter(h => h.type === 'yearly');
     if(daily.length > 0) { appContent.innerHTML += `<div class="section-title">🎯 Tägliche Routinen</div>`; daily.forEach(h => appContent.appendChild(createHabitElement(h))); }
@@ -132,7 +269,7 @@ function createHabitElement(habit) {
     const isDoneToday = history[selectedDateStr]?.[habit.id] || false;
     const div = document.createElement("div"); div.className = "habit-item"; let actionHTML = "";
     if (habit.type === 'daily') {
-        const streak = calculateStreak(habit.id); actionHTML = `<div class="checkbox ${isDoneToday ? 'checked' : ''}" onclick="toggleHabit(${habit.id})"></div>`;
+        const streak = calculateStreak(habit.id, selectedDateStr); actionHTML = `<div class="checkbox ${isDoneToday ? 'checked' : ''}" onclick="toggleHabit(${habit.id})"></div>`;
         div.innerHTML = `<div class="habit-info" onclick="toggleHabit(${habit.id})"><span class="habit-name truncate" onclick="toggleText(this, event)">${habit.name}</span><span class="habit-streak"><i class="fas fa-fire"></i> ${streak} Tage Streak</span></div>${actionHTML}<div class="action-btns"><button class="icon-btn edit-btn" onclick="openModal(${habit.id})"><i class="fas fa-pen"></i></button><button class="icon-btn delete-btn" onclick="deleteHabit(${habit.id})"><i class="fas fa-trash"></i></button></div>`;
     } else {
         const count = getCurrentPeriodCount(habit); let badgeClass = ""; let icon = "📈";
@@ -155,8 +292,18 @@ function renderWeek() {
 // ===== PROGRESS & CHART =====
 function renderProgress() {
     if (progressChart) { progressChart.destroy(); progressChart = null; }
+    
+    // 🔥 NEU: Die KI Analyse (Insights) dauerhaft im Fortschritt-Tab!
+    let primeDay = getBestWeekday();
+    
     let html = `
-        <div class="section-title" style="margin-top:0;">📊 Gesamt-Trend</div>
+        <div class="section-title" style="margin-top:0;">🧠 Deep Insights</div>
+        <div class="coach-banner" style="margin-bottom: 20px;">
+            <div class="coach-icon">📊</div>
+            <div class="coach-text">Dein stärkster Wochentag ist aktuell der <strong>${primeDay}</strong>. Da lieferst du richtig ab!</div>
+        </div>
+
+        <div class="section-title">📊 Gesamt-Trend</div>
         <div class="stat-filters"><button class="stat-filter-btn ${currentChartFilter === 'week' ? 'active' : ''}" onclick="setChartFilter('week', event)">Woche</button><button class="stat-filter-btn ${currentChartFilter === 'month' ? 'active' : ''}" onclick="setChartFilter('month', event)">Monat</button><button class="stat-filter-btn ${currentChartFilter === 'year' ? 'active' : ''}" onclick="setChartFilter('year', event)">Jahr</button><button class="stat-filter-btn ${currentChartFilter === 'all' ? 'active' : ''}" onclick="setChartFilter('all', event)">Alles</button></div>
         <div class="chart-container"><canvas id="progressChart"></canvas></div>
         <div class="section-title">📅 Aktivitäts-Historie & Tagebuch</div><div id="calendarContainer" class="calendar-container"></div>
@@ -172,9 +319,7 @@ function setChartFilter(filter, event) {
 }
 
 function renderChart() {
-    let days = 7;
-    let isLongTerm = false;
-
+    let days = 7; let isLongTerm = false;
     if (currentChartFilter === 'month') days = 30; 
     if (currentChartFilter === 'year') { days = 365; isLongTerm = true; }
     if (currentChartFilter === 'all') { 
@@ -184,9 +329,7 @@ function renderChart() {
         if (days > 90) isLongTerm = true; 
     }
 
-    const dates = getPastDates(days); 
-    const dailyHabits = habits.filter(h => h.type === 'daily');
-    
+    const dates = getPastDates(days); const dailyHabits = habits.filter(h => h.type === 'daily');
     const dailyPercentages = dates.map(date => {
         if (dayStatusList[date] === 'sick' || dayStatusList[date] === 'vacation') return null; 
         const dayHist = history[date] || {}; if (dailyHabits.length === 0) return 0;
@@ -194,75 +337,29 @@ function renderChart() {
         return Math.round((done / dailyHabits.length) * 100);
     });
 
-    let finalLabels = [];
-    let finalData = [];
-
+    let finalLabels = []; let finalData = [];
     if (isLongTerm) {
         for (let i = 0; i < dates.length; i += 7) {
             let chunkData = dailyPercentages.slice(i, i + 7).filter(val => val !== null);
-            if (chunkData.length === 0) {
-                finalData.push(null);
-            } else {
-                let sum = chunkData.reduce((a, b) => a + b, 0);
-                finalData.push(Math.round(sum / chunkData.length));
-            }
-            
-            // 🔥 FIX 1: Statt genauem Datum, nur noch "Monat + Jahr" (z.B. "Feb 26")
-            let dObj = new Date(dates[i]);
-            finalLabels.push(dObj.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' }));
+            if (chunkData.length === 0) finalData.push(null);
+            else { let sum = chunkData.reduce((a, b) => a + b, 0); finalData.push(Math.round(sum / chunkData.length)); }
+            let dObj = new Date(dates[i]); finalLabels.push(dObj.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' }));
         }
     } else {
         finalData = dailyPercentages;
-        finalLabels = dates.map(d => { 
-            let dateObj = new Date(d); 
-            if (days <= 7) return dateObj.toLocaleDateString('de-DE', {weekday: 'short'}); 
-            return dateObj.toLocaleDateString('de-DE', {day: '2-digit', month: 'short'}); 
-        });
+        finalLabels = dates.map(d => { let dateObj = new Date(d); if (days <= 7) return dateObj.toLocaleDateString('de-DE', {weekday: 'short'}); return dateObj.toLocaleDateString('de-DE', {day: '2-digit', month: 'short'}); });
     }
 
     const ctx = document.getElementById('progressChart').getContext('2d');
     if (progressChart) { progressChart.destroy(); }
     
-    // 🔥 FIX 2: Die nervigen Punkte bei "Jahr" und "Alles" auf 0 setzen!
-    let pRadius = isLongTerm ? 0 : 4; 
-    let pBorder = isLongTerm ? 0 : 2;
+    // Holt sich dynamisch die Farbe vom gewählten Theme für das Diagramm!
+    let accentColor = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#0ea5e9';
+    let pRadius = isLongTerm ? 0 : 4; let pBorder = isLongTerm ? 0 : 2;
 
     progressChart = new Chart(ctx, { 
-        type: 'line', 
-        data: { 
-            labels: finalLabels, 
-            datasets: [{ 
-                label: 'Erledigt (%)', 
-                data: finalData, 
-                borderColor: '#0ea5e9', 
-                backgroundColor: 'rgba(14, 165, 233, 0.2)', 
-                borderWidth: 3, 
-                fill: true, 
-                tension: 0.4, 
-                spanGaps: true, 
-                pointBackgroundColor: '#0f172a', 
-                pointBorderColor: '#0ea5e9', 
-                pointBorderWidth: pBorder, 
-                pointRadius: pRadius,          // Hier sind die Punkte unsichtbar!
-                pointHoverRadius: isLongTerm ? 4 : 6 // Beim Drauftippen taucht ein Punkt auf (für den Text)
-            }] 
-        }, 
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            scales: { 
-                y: { beginAtZero: true, max: 100, ticks: { color: '#94a3b8' } }, 
-                x: { 
-                    ticks: { 
-                        color: '#94a3b8', 
-                        // 🔥 FIX 3: Die App zeigt max. 6 Monats-Namen unten an, damit es extrem aufgeräumt aussieht
-                        maxTicksLimit: isLongTerm ? 6 : 7, 
-                        maxRotation: 0 // Zwingt den Text waagerecht zu bleiben
-                    } 
-                } 
-            }, 
-            plugins: { legend: { display: false } } 
-        } 
+        type: 'line', data: { labels: finalLabels, datasets: [{ label: 'Erledigt (%)', data: finalData, borderColor: accentColor, backgroundColor: accentColor.replace('rgb', 'rgba').replace(')', ', 0.2)'), borderWidth: 3, fill: true, tension: 0.4, spanGaps: true, pointBackgroundColor: '#0f172a', pointBorderColor: accentColor, pointBorderWidth: pBorder, pointRadius: pRadius, pointHoverRadius: isLongTerm ? 4 : 6 }] }, 
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100, ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8', maxTicksLimit: isLongTerm ? 6 : 7, maxRotation: 0 } } }, plugins: { legend: { display: false } } } 
     });
 }
 
@@ -315,7 +412,7 @@ function renderCalendarHeatmap() {
     container.innerHTML = `<div class="calendar-header"><button class="icon-btn" onclick="changeCalendarMonth(-1)"><i class="fas fa-chevron-left"></i></button><h3>${monthNames[month]} ${year}</h3><button class="icon-btn" onclick="changeCalendarMonth(1)"><i class="fas fa-chevron-right"></i></button></div><div class="calendar-weekdays"><span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span></div><div class="heatmap-grid">${gridHtml}</div>`;
 }
 
-// ===== MODALS & SETTINGS =====
+// ===== MODALS =====
 function openDiaryModal(dateStr) {
     const modal = document.getElementById("diaryModal"); document.getElementById("diaryDateTitle").textContent = formatDate(dateStr); document.getElementById("diaryDateHidden").value = dateStr; document.getElementById("diaryNoteInput").value = notes[dateStr] || "";
     tempDayStatus = dayStatusList[dateStr] || 'normal'; updateStatusUI();
@@ -362,13 +459,13 @@ function getProgressStats(habit, timeframe) {
     return { done: doneCount, target: cappedTarget, percent };
 }
 
-function calculateStreak(habitId) {
-    let streak = 0; let d = new Date(selectedDateStr); 
+function calculateStreak(habitId, fromDateStr) {
+    let streak = 0; let d = new Date(fromDateStr); 
     while (true) {
         const dateStr = d.toISOString().split("T")[0];
         if (dayStatusList[dateStr] === 'sick' || dayStatusList[dateStr] === 'vacation') { d.setDate(d.getDate() - 1); continue; }
         if (history[dateStr] && history[dateStr][habitId]) { streak++; d.setDate(d.getDate() - 1); } 
-        else if (dateStr === selectedDateStr) { d.setDate(d.getDate() - 1); } 
+        else if (dateStr === fromDateStr) { d.setDate(d.getDate() - 1); } 
         else { break; }
     }
     return streak;
@@ -390,35 +487,29 @@ function saveNewHabit() {
     localStorage.setItem("habits", JSON.stringify(habits)); closeModal(); init();
 }
 
-// ===== EXPORT & IMPORT =====
 function openSettingsModal() { document.getElementById("settingsModal").classList.remove("hidden"); }
 function closeSettingsModal() { document.getElementById("settingsModal").classList.add("hidden"); }
 
 function exportData() {
     const dataObj = { habits, history, notes, dayStatusList, appStartDate };
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataObj));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", "habit-tracker-backup.json");
+    const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", "habit-tracker-backup.json");
     document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove();
 }
-
 function importData(event) {
-    const file = event.target.files[0]; if (!file) return;
-    const reader = new FileReader();
+    const file = event.target.files[0]; if (!file) return; const reader = new FileReader();
     reader.onload = function(e) {
         try {
             const importedData = JSON.parse(e.target.result);
             if(importedData.habits && importedData.history) {
-                localStorage.setItem("habits", JSON.stringify(importedData.habits));
-                localStorage.setItem("history", JSON.stringify(importedData.history));
+                localStorage.setItem("habits", JSON.stringify(importedData.habits)); localStorage.setItem("history", JSON.stringify(importedData.history));
                 if(importedData.notes) localStorage.setItem("notes", JSON.stringify(importedData.notes));
                 if(importedData.dayStatusList) localStorage.setItem("dayStatusList", JSON.stringify(importedData.dayStatusList));
                 if(importedData.appStartDate) localStorage.setItem("appStartDate", importedData.appStartDate);
                 alert("Backup erfolgreich geladen! 🎉"); location.reload();
             } else { alert("Fehler: Ungültige Backup-Datei."); }
         } catch(error) { alert("Fehler beim Lesen der Datei."); }
-    };
-    reader.readAsText(file);
+    }; reader.readAsText(file);
 }
 
 init();
