@@ -3,8 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Premium Habit Tracker</title>
+    <title>Elite Habit Tracker</title>
+    
     <link rel="stylesheet" href="style.css">
+    
+    <link rel="manifest" href="manifest.json">
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -20,10 +24,12 @@
             
             <div style="display: flex; align-items: center; gap: 15px;">
                 <div id="perfectDayBadge" class="hidden">⭐ PERFECT DAY</div>
+                
                 <div class="bell-container" onclick="openMonthlyReview(false)">
                     <i class="fas fa-bell icon-btn" style="padding: 0;"></i>
                     <div id="notificationDot" class="notification-dot hidden"></div>
                 </div>
+                
                 <button class="icon-btn" onclick="openSettingsModal()"><i class="fas fa-cog"></i></button>
             </div>
         </div>
@@ -107,6 +113,7 @@
             <label style="display: block;">Daten-Sicherheit:</label>
             <div class="modal-actions" style="flex-direction: column; gap: 10px; margin-bottom: 25px;">
                 <button class="btn-save" style="width: 100%;" onclick="exportData()"><i class="fas fa-download"></i> Backup speichern</button>
+                
                 <button class="btn-cancel" style="width: 100%; position: relative;" onclick="document.getElementById('importFile').click()">
                     <i class="fas fa-upload"></i> Backup laden
                 </button>
@@ -137,9 +144,15 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
-</body>
-</html>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registriert!', reg))
+                    .catch(err => console.log('Service Worker Fehler:', err));
+            });
+        }
+    </script>
 
     <script src="app.js"></script>
 </body>
